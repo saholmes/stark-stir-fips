@@ -58,3 +58,7 @@ harness = false
 [[bench]]
 name = "multi_air_end_to_end"
 harness = false
+
+[[bench]]
+name = "simple_recursion"
+harness = false

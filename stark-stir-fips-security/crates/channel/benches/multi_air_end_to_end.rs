@@ -26,10 +26,17 @@ use deep_ali::{
     },
 };
 
-use deep_ali::sextic_ext::SexticExt;
+
 use deep_ali::tower_field::TowerField;
 
-type Ext = SexticExt;
+
+// FP^6 extension field
+//use deep_ali::sextic_ext::SexticExt;
+//type Ext = SexticExt;
+
+// FP^8 extension field
+use deep_ali::octic_ext::OcticExt;
+type Ext = OcticExt;
 
 // ═══════════════════════════════════════════════════════════════════
 //  Configuration
@@ -52,7 +59,16 @@ const BLOWUP: usize = 32;
 /// We use 54 for a small margin.
 ///
 /// (Comparison: blowup=4 gives only 1 bit/query, requiring r=128.)
-const R_QUERIES: usize = 54;
+
+/// NIST Security Level 1 
+//const R_QUERIES: usize = 54;
+
+/// NIST Security Level 3
+//const R_QUERIES: usize = 79;
+
+/// NIST Security Level 5
+const R_QUERIES: usize = 105;
+
 
 /// Set to `false` for classic FRI, `true` for STIR mode.
 const USE_STIR: bool = true;
@@ -148,16 +164,74 @@ fn ks_for_schedule(schedule: &[usize], k_lo: usize, k_hi: usize) -> Vec<usize> {
         .collect()
 }
 
+/// Extend a base schedule so that its fold arities multiply to exactly `n0`,
+/// **without** ever appending a single oversized tail fold.
+///
+/// Strategy:
+///   1. If the base schedule is *uniform* (every entry == `a`), extend with
+///      additional folds of `a` until the remaining domain is smaller than `a`.
+///   2. Any leftover bits (for uniform) or the entire remainder (non-uniform)
+///      are decomposed into folds of 2.
+///
+/// This guarantees that no fold arity in the output exceeds the largest arity
+/// already present in the base schedule.
+///
+/// Examples (all with n0 = 2^24):
+///   base=[4,4,4,4,4,4,4,4]  → [4 × 12]                 (was [4^8, 256])
+///   base=[8,8,8,8]           → [8,8,8,8, 8,8,8, 2,2,2]  (was [8^4, 4096])
+///   base=[16,16]             → [16 × 6]                  (was [16^2, 65536])
+///   base=[64,32,16,16]       → [64,32,16,16, 2,2,2,2,2]  (was [64,32,16,16, 32])
 fn normalize_fri_schedule(n0: usize, mut schedule: Vec<usize>) -> Vec<usize> {
-    let mut n = n0;
+    // Consume the base schedule from the domain
+    let mut remaining = n0;
     for &m in &schedule {
-        assert!(n % m == 0, "schedule does not divide domain");
-        n /= m;
+        assert!(
+            remaining % m == 0,
+            "schedule entry {} does not divide remaining domain {}",
+            m,
+            remaining
+        );
+        remaining /= m;
     }
-    if n > 1 {
-        assert!(n.is_power_of_two(), "final layer must be power of two");
-        schedule.push(n);
+
+    if remaining <= 1 {
+        return schedule;
     }
+
+    assert!(
+        remaining.is_power_of_two(),
+        "remaining domain {} must be a power of two",
+        remaining
+    );
+
+    let remaining_bits = log2_pow2(remaining);
+
+    // Detect uniform schedule: all entries identical and non-empty
+    let is_uniform = !schedule.is_empty()
+        && schedule.iter().all(|&x| x == schedule[0]);
+
+    if is_uniform {
+        let arity = schedule[0];
+        let arity_bits = log2_pow2(arity);
+
+        // Pack as many full folds of the uniform arity as possible
+        let full_folds = remaining_bits / arity_bits;
+        for _ in 0..full_folds {
+            schedule.push(arity);
+        }
+
+        // Decompose the leftover bits into folds of 2
+        let leftover_bits = remaining_bits % arity_bits;
+        for _ in 0..leftover_bits {
+            schedule.push(2);
+        }
+    } else {
+        // Non-uniform: decompose entire remainder into folds of 2
+        for _ in 0..remaining_bits {
+            schedule.push(2);
+        }
+    }
+
     schedule
 }
 
@@ -191,13 +265,16 @@ fn bench_e2e_mf_fri(c: &mut Criterion) {
     // With BLOWUP=32, n_trace = n0/32 = 2^(k-5).
     // k_lo=15 → n_trace = 2^10 = 1024  (smallest practical trace)
     // k_lo=11 with blowup=32 would give n_trace=64, far too small.
-    let k_lo = 20usize;
-    let k_hi = 20usize;
+    let k_lo = 11usize;
+    let k_hi = 24usize;
 
     let presets: &[(&str, &[usize])] = &[
-        ("2power16",       &[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]),
-        ("16by16times5",   &[16,16,16,16,16]), 
-        ("64by32by16by16", &[64,32,16,16]),
+        ("2powerx",       &[2]),
+        ("4powerx",        &[4]),
+        ("8powerx",        &[8]),
+        //("16power2",       &[16]),
+        //("16power2",       &[32]),
+        //("64power2",       &[64]),
         //("16by16by16",     &[16,16,16]),
         //("32by16by8",      &[32,16,8]),
         //("64by32by16",     &[64,32,16]),
