@@ -2879,6 +2879,83 @@ mod tests {
         );
     }
 
+    /// Integration test: the same DEEP-ALI merge construction used by
+    /// the merged FRI and ÷4 \STIR rows of Table~5 (`deep_ali_merge_evals`
+    /// in `lib.rs`) feeds the ÷2 full-Ext halving prover.  Confirms the
+    /// paper's "one merge family, all three LDT configurations consume
+    /// the same f_0" claim end-to-end in code.
+    ///
+    /// Pipeline:
+    ///   real_trace_inputs(n0, rate_inv)
+    ///     → 4 LDE evaluation vectors (a, s, e, t) of degree < n0/rate_inv
+    ///   deep_ali_merge_evals(a, s, e, t, omega, n_trace)
+    ///     → f_0 = (Φ̃/Z_H)|_{H_0} where Φ̃ = a·s + e − t
+    ///   prove_halve_full_ext::<SexticExt>(f_0, ...)
+    ///     → ÷2 full-Ext STIR proof
+    #[test]
+    fn merge_to_halve_full_ext_round_trip_g6() {
+        use crate::deep_ali_merge_evals;
+        use crate::sextic_ext::SexticExt;
+        use crate::trace_import::real_trace_inputs;
+
+        let mut rng = StdRng::seed_from_u64(0xC0FF_EE42_DEAD_BEEFu64);
+        // Use a modest size that exercises the merge IFFT/Z_H division +
+        // multi-round ÷2 halving without blowing up CI wall-time.
+        let n0 = 1usize << 12;
+        let rate_inv = 4;
+        let n_trace = n0 / rate_inv;
+
+        // (1) Produce real Fibonacci-AIR LDE trace evaluations.
+        let trace = real_trace_inputs(n0, rate_inv);
+
+        // (2) Run the DEEP-ALI merge — same call the ÷4 STIR and merged
+        //     FRI benches use (`crates/channel/benches/end_to_end.rs:246`).
+        let dom0 = Domain::<F>::new(n0).expect("radix-2 domain");
+        let f0 = deep_ali_merge_evals(
+            &trace.a_eval,
+            &trace.s_eval,
+            &trace.e_eval,
+            &trace.t_eval,
+            dom0.group_gen,
+            n_trace,
+        );
+        assert_eq!(f0.len(), n0);
+
+        // (3) Feed the merged f_0 into the ÷2 full-Ext prover.
+        let m = 4;
+        let k = 4;
+        let domain0 = HalveCoset::root(n0);
+        let schedule: Vec<RoundSchedule> = (0..m)
+            .map(|_| RoundSchedule { deg_div: k, dom_div: 2 })
+            .collect();
+        let alphas: Vec<SexticExt> = (0..m)
+            .map(|i| {
+                let comps: Vec<F> = (0..SexticExt::DEGREE)
+                    .map(|s| F::from((i as u64) * 1009 + (s as u64) * 13 + 1))
+                    .collect();
+                SexticExt::from_fp_components(&comps).expect("SexticExt")
+            })
+            .collect();
+        let _ = rng;
+        let t_per_round: Vec<usize> = vec![5, 4, 3, 2];
+        let q_indices: Vec<Vec<usize>> = (0..m)
+            .map(|i| (0..t_per_round[i]).map(|q| (q * 7919) % (n0 / k)).collect())
+            .collect();
+
+        let proof = prove_halve_full_ext::<SexticExt>(
+            f0, domain0, &alphas, &schedule, &q_indices,
+        );
+        assert!(
+            verify_halve_full_ext::<SexticExt>(&proof, &alphas, &schedule),
+            "merged-f0 → full-Ext halving proof failed to verify"
+        );
+        let bytes = halve_proof_full_ext_size_bytes::<SexticExt>(&proof);
+        eprintln!(
+            "[merge → ÷2 full-Ext G⁶ n0={}, n_trace={}, m={}, sum_t={}, bytes={}]",
+            n0, n_trace, m, t_per_round.iter().sum::<usize>(), bytes
+        );
+    }
+
     /// Tamper rejection at the full-Ext path (G⁶).  Three independent
     /// tamper sites exercise three of the four soundness mechanisms
     /// (algebraic fold, cross-layer Merkle binding, OOD-quotient binding).
