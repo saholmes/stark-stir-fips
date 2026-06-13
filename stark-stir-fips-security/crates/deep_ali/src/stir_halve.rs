@@ -2157,7 +2157,13 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0xCAFE_BABE);
         let n0 = 1usize << k_log;
         let d0 = n0 / rate_inv;
-        let k = 4;
+        // Fold arity: 4 for STIR-style halving (declining-rate), 2 for
+        // the binary-FRI |Z|=1 instance.  Overridden via STIRHALVE_DEG_DIV.
+        let k: usize = std::env::var("STIRHALVE_DEG_DIV")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4);
+        assert!(k.is_power_of_two() && k >= 2, "deg_div must be power of 2, ≥2");
         let coeffs: Vec<F> = (0..n0)
             .map(|i| if i < d0 { F::rand(&mut rng) } else { F::zero() })
             .collect();
@@ -2584,7 +2590,13 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0xCAFE_BABE);
         let n0 = 1usize << k_log;
         let d0 = n0 / rate_inv;
-        let k = 4;
+        // Fold arity: 4 for STIR-style halving (declining-rate), 2 for
+        // the binary-FRI |Z|=1 instance.  Overridden via STIRHALVE_DEG_DIV.
+        let k: usize = std::env::var("STIRHALVE_DEG_DIV")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4);
+        assert!(k.is_power_of_two() && k >= 2, "deg_div must be power of 2, ≥2");
         let coeffs: Vec<F> = (0..n0)
             .map(|i| if i < d0 { F::rand(&mut rng) } else { F::zero() })
             .collect();
@@ -2749,7 +2761,13 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(0xCAFE_BABE);
         let n0 = 1usize << k_log;
         let d0 = n0 / rate_inv;
-        let k = 4;
+        // Fold arity: 4 for STIR-style halving (declining-rate), 2 for
+        // the binary-FRI |Z|=1 instance.  Overridden via STIRHALVE_DEG_DIV.
+        let k: usize = std::env::var("STIRHALVE_DEG_DIV")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(4);
+        assert!(k.is_power_of_two() && k >= 2, "deg_div must be power of 2, ≥2");
         let coeffs: Vec<F> = (0..n0)
             .map(|i| if i < d0 { F::rand(&mut rng) } else { F::zero() })
             .collect();
