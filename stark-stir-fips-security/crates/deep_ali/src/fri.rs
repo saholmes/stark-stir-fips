@@ -43,7 +43,7 @@ fn finalize_to_digest(h: SelectedHasher) -> [u8; HASH_BYTES] {
     out
 }
 
-fn transcript_challenge_hash(tr: &mut Transcript, label: &[u8]) -> [u8; HASH_BYTES] {
+pub(crate) fn transcript_challenge_hash(tr: &mut Transcript, label: &[u8]) -> [u8; HASH_BYTES] {
     let v = tr.challenge_bytes(label);
     assert!(
         v.len() >= HASH_BYTES,
@@ -110,7 +110,7 @@ macro_rules! logln {
     ($($tt:tt)*) => {};
 }
 
-mod ds {
+pub(crate) mod ds {
     pub const FRI_SEED: &[u8] = b"FRI/seed";
     pub const FRI_INDEX: &[u8] = b"FRI/index";
     pub const FRI_Z_L: &[u8] = b"FRI/z/l";
@@ -870,7 +870,7 @@ fn coeff_leaf_fields<E: TowerField>(tuple: &[E]) -> Vec<F> {
 //  Extension-field evaluation/coefficient helpers
 // ────────────────────────────────────────────────────────────────────────
 
-fn ext_evals_to_coeffs<E: TowerField>(evals: &[E]) -> Vec<E> {
+pub(crate) fn ext_evals_to_coeffs<E: TowerField>(evals: &[E]) -> Vec<E> {
     let n = evals.len();
     if n == 0 {
         return vec![];

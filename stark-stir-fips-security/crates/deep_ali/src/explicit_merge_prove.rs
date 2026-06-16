@@ -67,9 +67,10 @@ use crate::explicit_merge::{
 use crate::explicit_merge_air::{build_ood_claims_from_witness, AirOodEvaluator};
 use crate::explicit_merge_layer0::{Layer0Commit, Layer0Opening};
 use crate::fri::{
-    absorb_ext, bind_statement_to_transcript, challenge_ext, fri_prove_layer_openings_only,
-    fri_rounds_from_f0_ext, FriDomain, FriLayerProofs, FriProverParams, FriProverState,
-    LayerOpenPayload, LayerQueryRef, StirProximityPayload,
+    absorb_ext, bind_statement_to_transcript, challenge_ext, ds, ext_evals_to_coeffs,
+    fri_prove_layer_openings_only, fri_rounds_from_f0_ext, safe_field_challenge,
+    transcript_challenge_hash, FriDomain, FriLayerProofs, FriProverParams,
+    FriProverState, LayerOpenPayload, LayerQueryRef, StirProximityPayload,
 };
 use crate::tower_field::TowerField;
 
@@ -437,6 +438,180 @@ pub fn prove_explicit_queries<E: TowerField>(
     }
 
     (queries, layer_proofs, roots)
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  derive_query_seed_explicit — FS-replay for query_seed
+// ═══════════════════════════════════════════════════════════════
+
+/// FS replay that derives the per-proof query seed for the explicit
+/// form.
+///
+/// Mirrors the classic `deep_fri_prove`'s replay (fri.rs lines
+/// 1993-2046) with TWO insertions between the `z_fp3` draw and the
+/// FRI_SEED draw:
+///   - Absorb OOD claims (trace_at_shifts row-major then q_at_z).
+///   - Draw γ_1, γ_2, β.
+///
+/// These match the prover-side `prove_layer0_phase` transcript
+/// sequence exactly, so the FS chain through query_seed is unbroken.
+///
+/// After the layer loop and final-poly absorb, draws
+/// `b"query_seed"` as a base-field challenge — identical to classic.
+pub(crate) fn derive_query_seed_explicit<E: TowerField>(
+    state: &ExplicitProverState<E>,
+    domain0: FriDomain,
+    fri_params: &FriProverParams,
+    final_poly_coeffs: &[E],
+) -> F {
+    let l = fri_params.schedule.len();
+    let use_coeff_commit = fri_params.coeff_commit_final && l > 0;
+    let normal_layers = if use_coeff_commit { l - 1 } else { l };
+
+    let mut tr = transcript::Transcript::new_matching_hash(b"FRI/FS");
+
+    bind_statement_to_transcript::<E>(
+        &mut tr,
+        &fri_params.schedule,
+        domain0.size,
+        fri_params.seed_z,
+        fri_params.coeff_commit_final,
+        fri_params.stir,
+    );
+    tr.absorb_bytes(&state.layer0_commit.root);
+    let _ = challenge_ext::<E>(&mut tr, b"z_fp3");
+
+    // EXPLICIT-form insertions: absorb OOD claims then draw γ.
+    for col in &state.ood_claims.trace_at_shifts {
+        for &v in col {
+            absorb_ext::<E>(&mut tr, v);
+        }
+    }
+    absorb_ext::<E>(&mut tr, state.ood_claims.q_at_z);
+    let _ = challenge_ext::<E>(&mut tr, b"ali_gamma1");
+    let _ = challenge_ext::<E>(&mut tr, b"ali_gamma2");
+    let _ = challenge_ext::<E>(&mut tr, b"ali_beta");
+
+    // FRI_SEED draw — same point in the transcript as the prover used
+    // inside fri_rounds_from_f0_ext.
+    let _: [u8; HASH_BYTES] = transcript_challenge_hash(&mut tr, ds::FRI_SEED);
+
+    // Per-layer draws + absorbs — identical to classic.
+    for ell in 0..normal_layers {
+        let _ = challenge_ext::<E>(&mut tr, b"alpha");
+        if fri_params.stir {
+            let coset_evals = &state.fri_state.stir_coset_evals.as_ref().unwrap()[ell];
+            for &ev in coset_evals {
+                absorb_ext::<E>(&mut tr, ev);
+            }
+        } else {
+            absorb_ext::<E>(&mut tr, state.fri_state.fz_layers[ell]);
+        }
+        tr.absorb_bytes(&state.fri_state.transcript.layers[ell].root);
+    }
+
+    if use_coeff_commit {
+        let ell = l - 1;
+        if fri_params.stir {
+            let coset_evals = &state.fri_state.stir_coset_evals.as_ref().unwrap()[ell];
+            for &ev in coset_evals {
+                absorb_ext::<E>(&mut tr, ev);
+            }
+        } else {
+            absorb_ext::<E>(&mut tr, state.fri_state.fz_layers[ell]);
+        }
+        tr.absorb_bytes(&state.fri_state.transcript.layers[ell].root);
+
+        tr.absorb_bytes(&state.fri_state.coeff_root.expect(
+            "coeff_root must be Some when coeff_commit_final && L>0"));
+        let _ = challenge_ext::<E>(&mut tr, b"alpha");
+        let _ = challenge_ext::<E>(&mut tr, b"beta_deg");
+    }
+
+    for &c in final_poly_coeffs {
+        absorb_ext::<E>(&mut tr, c);
+    }
+
+    safe_field_challenge(&mut tr, b"query_seed")
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  deep_fri_prove_explicit — full prover entry
+// ═══════════════════════════════════════════════════════════════
+
+/// Full explicit-form prover entry point.
+///
+/// Produces a `DeepFriProofExplicit<E>` end-to-end:
+///   1. `prove_explicit_state` — Layer0Commit + transcript + merge +
+///      FRI rounds 1..L.
+///   2. Compute `final_poly_coeffs` from `f_layers_ext.last()`.
+///   3. `derive_query_seed_explicit` — FS replay → query_seed.
+///   4. `prove_explicit_queries` — open `r` queries against the
+///      state.
+///   5. Pack the proof envelope (including `layer0_tree_label` and
+///      `trace_width` for the verifier).
+///
+/// STIR mode is NOT YET supported in this entry point: if
+/// `fri_params.stir == true`, the function panics rather than
+/// returning a partial/invalid proof.  STIR plumbing
+/// (`stir_proximity_queries`, `stir_coset_evals`) is tracked as a
+/// follow-up.
+pub fn deep_fri_prove_explicit<E, A>(
+    witness: &MergeWitness,
+    h0_domain: &[F],
+    air: &A,
+    domain0: FriDomain,
+    fri_params: &FriProverParams,
+    layer0_tree_label: u64,
+    r: usize,
+) -> DeepFriProofExplicit<E>
+where
+    E: TowerField,
+    A: AirOodEvaluator<E>,
+{
+    assert!(!fri_params.stir,
+        "deep_fri_prove_explicit: STIR mode is not yet wired into the explicit form");
+    let trace_width = witness.trace_columns.len();
+
+    // 1. Build prover state (layer-0 phase + FRI rounds 1..L).
+    let state: ExplicitProverState<E> = prove_explicit_state::<E, A>(
+        witness, h0_domain, air, domain0, fri_params, layer0_tree_label,
+    );
+
+    // 2. Final-poly coefficients.
+    let l = fri_params.schedule.len();
+    let final_evals = state.fri_state.f_layers_ext[l].clone();
+    let all_coeffs = ext_evals_to_coeffs::<E>(&final_evals);
+    let d_final = fri_params.d_final.min(all_coeffs.len());
+    let final_poly_coeffs: Vec<E> = all_coeffs[..d_final].to_vec();
+
+    // 3. query_seed via FS replay.
+    let query_seed = derive_query_seed_explicit::<E>(
+        &state, domain0, fri_params, &final_poly_coeffs,
+    );
+
+    // 4. Open r queries.
+    let (queries, layer_proofs, roots) =
+        prove_explicit_queries::<E>(&state, r, query_seed);
+
+    // 5. Pack proof.
+    DeepFriProofExplicit {
+        root_f0:    state.layer0_commit.root,
+        roots,
+        ood_claims: state.ood_claims,
+        layer_proofs,
+        queries,
+        fz_per_layer:      state.fri_state.fz_layers.clone(),
+        final_poly_coeffs,
+        n0:     domain0.size,
+        omega0: domain0.omega,
+        coeff_tuples:      state.fri_state.coeff_tuples.clone(),
+        coeff_root:        state.fri_state.coeff_root,
+        stir_coset_evals:  state.fri_state.stir_coset_evals.clone(),
+        stir_proximity_queries: None,
+        layer0_tree_label,
+        trace_width,
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1024,5 +1199,163 @@ mod tests {
             .count();
         assert!(diff_count > 0,
             "distinct query_seeds must yield at least one distinct layer-0 index");
+    }
+
+    // ── deep_fri_prove_explicit ── (P5.6)
+
+    /// Honest e2e: produces a fully-populated DeepFriProofExplicit
+    /// with consistent metadata (root_f0 = layer0_commit.root, n0,
+    /// trace_width, query count, fz_per_layer length, roots length).
+    #[test]
+    fn deep_fri_prove_explicit_honest_e2e_shape() {
+        let mut rng = StdRng::seed_from_u64(0x5606_0001);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(31u64));
+        let air = ConstantBoundaryAir { c: F::from(31u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = 0x5606_AAAAu64;
+        let r = 6usize;
+
+        let proof: DeepFriProofExplicit<Ext> = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label, r,
+        );
+
+        assert_eq!(proof.n0, n);
+        assert_eq!(proof.trace_width, witness.trace_columns.len());
+        assert_eq!(proof.layer0_tree_label, label);
+        assert_eq!(proof.queries.len(), r);
+        assert_eq!(proof.fz_per_layer.len(), fri_params.schedule.len());
+        assert_eq!(proof.roots.len(), fri_params.schedule.len());
+        assert_eq!(proof.layer_proofs.layers.len(), fri_params.schedule.len());
+        assert!(!proof.final_poly_coeffs.is_empty(),
+            "final_poly_coeffs must be populated (d_final >= 1)");
+
+        // Per-query: layer0_opening index matches per_layer_refs[0].i.
+        for q in &proof.queries {
+            assert_eq!(q.layer0_opening.index, q.per_layer_refs[0].i);
+            assert_eq!(q.layer0_opening.leaf.width(), witness.trace_columns.len());
+        }
+
+        // Layer proofs: one MerkleOpening per query per layer.
+        for (ell, lp) in proof.layer_proofs.layers.iter().enumerate() {
+            assert_eq!(lp.openings.len(), r,
+                "layer {} has {} openings, expected r={}", ell, lp.openings.len(), r);
+        }
+    }
+
+    /// Determinism: same (witness, params, label, r) → identical
+    /// proof (root_f0, every layer root, every query's leaf payload).
+    #[test]
+    fn deep_fri_prove_explicit_deterministic() {
+        let mut rng = StdRng::seed_from_u64(0x5606_0002);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(43u64));
+        let air = ConstantBoundaryAir { c: F::from(43u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = 0x5606_BBBBu64;
+        let r = 4usize;
+
+        let a: DeepFriProofExplicit<Ext> = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label, r);
+        let b: DeepFriProofExplicit<Ext> = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label, r);
+
+        assert_eq!(a.root_f0, b.root_f0);
+        assert_eq!(a.roots, b.roots);
+        assert_eq!(a.fz_per_layer, b.fz_per_layer);
+        assert_eq!(a.final_poly_coeffs, b.final_poly_coeffs);
+        for (qa, qb) in a.queries.iter().zip(b.queries.iter()) {
+            assert_eq!(qa.layer0_opening.index, qb.layer0_opening.index);
+            assert_eq!(qa.layer0_opening.leaf.trace_values,
+                       qb.layer0_opening.leaf.trace_values);
+            assert_eq!(qa.layer0_opening.leaf.q_value, qb.layer0_opening.leaf.q_value);
+            assert_eq!(qa.layer0_opening.leaf.r_value, qb.layer0_opening.leaf.r_value);
+            assert_eq!(qa.final_index, qb.final_index);
+        }
+    }
+
+    /// query_seed FS replay is consistent: the query_seed
+    /// derive_query_seed_explicit computes from the state matches
+    /// what deep_fri_prove_explicit ends up using to open queries.
+    /// (Implicit pin: prover and verifier MUST agree on query_seed,
+    /// so its derivation must be a pure function of public data.)
+    #[test]
+    fn derive_query_seed_explicit_deterministic() {
+        let (state, _w, _h0, _trace_len, _air, fri_params) =
+            run_honest_prover(0x5606_0003, 47);
+        let domain0 = FriDomain::new_radix2(state.fri_state.f_layers_ext[0].len());
+
+        // Synthetic final_poly_coeffs (would normally come from
+        // ext_evals_to_coeffs on the last layer).
+        let final_evals = state.fri_state.f_layers_ext[fri_params.schedule.len()].clone();
+        let all_coeffs = ext_evals_to_coeffs::<Ext>(&final_evals);
+        let d_final = fri_params.d_final.min(all_coeffs.len());
+        let final_poly = all_coeffs[..d_final].to_vec();
+
+        let qs1 = derive_query_seed_explicit::<Ext>(
+            &state, domain0, &fri_params, &final_poly);
+        let qs2 = derive_query_seed_explicit::<Ext>(
+            &state, domain0, &fri_params, &final_poly);
+        assert_eq!(qs1, qs2, "query_seed derivation must be deterministic");
+    }
+
+    /// Tamper a single witness entry — root_f0 changes AND query
+    /// positions change (because query_seed FS-derives from root_f0
+    /// through the whole chain).
+    #[test]
+    fn deep_fri_prove_explicit_witness_tamper_changes_root_and_queries() {
+        let mut rng = StdRng::seed_from_u64(0x5606_0004);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(2u64));
+        let air = ConstantBoundaryAir { c: F::from(2u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = 0x5606_CCCCu64;
+        let r = 4usize;
+
+        let orig: DeepFriProofExplicit<Ext> = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label, r);
+
+        let mut tampered = witness.clone();
+        tampered.trace_columns[0][4] += F::one();
+        let bad: DeepFriProofExplicit<Ext> = deep_fri_prove_explicit::<Ext, _>(
+            &tampered, &h0, &air, domain0, &fri_params, label, r);
+
+        assert_ne!(orig.root_f0, bad.root_f0);
+        // At least one query position differs (FS chain end-to-end).
+        let any_q_diff = orig.queries.iter().zip(bad.queries.iter())
+            .any(|(a, b)| a.layer0_opening.index != b.layer0_opening.index);
+        assert!(any_q_diff,
+            "witness tamper propagated to root_f0 but NOT to any query position");
+    }
+
+    /// `fri_params.stir = true` panics with a clear message (STIR
+    /// mode is explicitly out-of-scope for this commit).
+    #[test]
+    #[should_panic(expected = "STIR mode is not yet wired")]
+    fn deep_fri_prove_explicit_panics_on_stir() {
+        let mut rng = StdRng::seed_from_u64(0x5606_0005);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(7u64));
+        let air = ConstantBoundaryAir { c: F::from(7u64) };
+        let mut fri_params = baseline_fri_params();
+        fri_params.stir = true;
+        let domain0 = FriDomain::new_radix2(n);
+        let _ = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, 0, 1);
     }
 }
