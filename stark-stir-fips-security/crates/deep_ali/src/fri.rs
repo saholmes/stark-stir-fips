@@ -1121,6 +1121,33 @@ pub(crate) fn bind_statement_to_transcript<E: TowerField>(
     tr.absorb_field(F::from(stir as u64));
 }
 
+/// P6.6 — variant of `bind_statement_to_transcript` that additionally
+/// absorbs an optional `public_inputs_hash` AFTER the original
+/// bind-statement bytes.  When `Some`, a 1-byte presence flag is
+/// absorbed followed by the 32-byte hash; when `None`, no extra bytes
+/// are absorbed at all.
+///
+/// Backwards compatibility: with `public_inputs_hash = None`, the
+/// transcript is byte-for-byte identical to `bind_statement_to_transcript`
+/// — pre-P6.6 callers see no change.
+pub(crate) fn bind_statement_to_transcript_with_pi<E: TowerField>(
+    tr: &mut Transcript,
+    schedule: &[usize],
+    n0: usize,
+    seed_z: u64,
+    coeff_commit_final: bool,
+    stir: bool,
+    public_inputs_hash: Option<[u8; 32]>,
+) {
+    bind_statement_to_transcript::<E>(
+        tr, schedule, n0, seed_z, coeff_commit_final, stir,
+    );
+    if let Some(h) = public_inputs_hash {
+        tr.absorb_bytes(b"DEEP-FRI-PI-HASH-V1");
+        tr.absorb_bytes(&h);
+    }
+}
+
 pub fn fri_fold_layer(
     evals: &[F],
     z_l: F,
@@ -1268,10 +1295,12 @@ pub struct LayerProof {
     pub openings: Vec<MerkleOpening>,
 }
 
+#[derive(Clone)]
 pub struct FriLayerProofs {
     pub layers: Vec<LayerProof>,
 }
 
+#[derive(Clone)]
 pub struct DeepFriProof<E: TowerField> {
     pub root_f0: [u8; HASH_BYTES],
     pub roots: Vec<[u8; HASH_BYTES]>,
@@ -1297,6 +1326,12 @@ pub struct DeepFriParams {
     pub d_final: usize,
     pub stir: bool,
     pub s0: usize,
+    /// P6.6 — optional SHA3-256 commitment to public inputs (absorbed
+    /// into the FS transcript before any challenge is drawn).  When
+    /// set, the proof is cryptographically bound to these specific
+    /// inputs.  `None` preserves the historical pre-P6.6 behaviour
+    /// for every existing caller bit-for-bit.
+    pub public_inputs_hash: Option<[u8; 32]>,
 }
 
 impl DeepFriParams {
@@ -1309,7 +1344,14 @@ impl DeepFriParams {
             d_final: 1,
             stir: false,
             s0: r,
+            public_inputs_hash: None,
         }
+    }
+
+    /// P6.6 — fluent setter for the public-inputs commitment.
+    pub fn with_public_inputs_hash(mut self, h: [u8; 32]) -> Self {
+        self.public_inputs_hash = Some(h);
+        self
     }
 
     pub fn with_coeff_commit(mut self) -> Self {
@@ -1374,6 +1416,37 @@ pub(crate) fn absorb_ext<E: TowerField>(tr: &mut Transcript, v: E) {
     for c in v.to_fp_components() {
         tr.absorb_field(c);
     }
+}
+
+/// P6.6 — re-derive the OOD point `z` from a finalised proof.
+///
+/// Replays the prover's FS transcript over `(statement bind ∥ root_f0)`
+/// — both the classic-form prefix and the new
+/// `bind_statement_to_transcript_with_pi` extension covering an
+/// optional `public_inputs_hash` — and returns the same extension-
+/// field challenge the prover used.  Callers that need to bind a
+/// concrete public-inputs digest into the verifier-side z draw
+/// supply it via `params.public_inputs_hash`.
+///
+/// This is the variant used by `sub_air_with_trace` and
+/// `binding_cells_commit` to cross-check OOD claims across sub-AIR
+/// boundaries (paper Contribution (2)).
+pub fn derive_z_ext_for_proof<E: TowerField>(
+    proof: &DeepFriProof<E>,
+    params: &DeepFriParams,
+) -> E {
+    let mut tr = Transcript::new_matching_hash(b"FRI/FS");
+    bind_statement_to_transcript_with_pi::<E>(
+        &mut tr,
+        &params.schedule,
+        proof.n0,
+        params.seed_z,
+        params.coeff_commit_final,
+        params.stir,
+        params.public_inputs_hash,
+    );
+    tr.absorb_bytes(&proof.root_f0);
+    challenge_ext::<E>(&mut tr, b"z_fp3")
 }
 
 // =============================================================================

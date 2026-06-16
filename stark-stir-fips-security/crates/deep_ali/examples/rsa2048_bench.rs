@@ -93,12 +93,12 @@ fn main() {
     // ── Prove ──
     let n0 = n_trace * blowup;
     let domain = FriDomain::new_radix2(n0);
-    // P6.5 port note: dust-stark's DeepFriParams has a
-    // `public_inputs_hash: Option<[u8; 32]>` field used for
-    // statement-binding; stark-stir-fips's variant doesn't expose it
-    // yet.  The bench numbers are unaffected — the hash only enters
-    // the FS transcript as a public-input absorb, not the prover's
-    // hot path.  Backporting tracked as a follow-up.
+    let pi_hash: [u8; 32] = {
+        use sha3::{Digest, Sha3_256};
+        let mut h = Sha3_256::new();
+        h.update(b"deep_ali/rsa2048_bench/v1");
+        h.finalize().into()
+    };
     let params = DeepFriParams {
         schedule: (0..n0.trailing_zeros() as usize).map(|_| 2).collect(),
         r,
@@ -107,6 +107,7 @@ fn main() {
         d_final: 1,
         stir: use_stir,
         s0: r,
+        public_inputs_hash: Some(pi_hash),  // P6.6 — now backported
     };
 
     let t0 = Instant::now();

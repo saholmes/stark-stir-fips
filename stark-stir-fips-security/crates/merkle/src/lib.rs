@@ -1,4 +1,5 @@
 use ark_ff::{BigInteger, PrimeField};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_goldilocks::Goldilocks as F;
 use ark_goldilocks::Goldilocks;
 
@@ -131,7 +132,7 @@ impl MerkleChannelCfg {
 /// Merkle opening
 /// =======================
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, ark_serialize::CanonicalSerialize, ark_serialize::CanonicalDeserialize)]
 pub struct MerkleOpening {
     pub leaf: [u8; HASH_BYTES],
     pub path: Vec<Vec<[u8; HASH_BYTES]>>,
