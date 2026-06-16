@@ -541,3 +541,16 @@ pub mod rsa2048;
 pub mod rsa2048_field_air;
 pub mod rsa2048_exp_air;
 pub mod rsa2048_stacked_air;
+
+// P6.2 — Ed25519 signature AIR + SHA-512 dependency ported from dust-stark.
+pub mod sha512_air;
+pub mod ed25519_field;
+pub mod ed25519_field_air;
+pub mod ed25519_group;
+pub mod ed25519_group_air;
+pub mod ed25519_scalar;
+pub mod ed25519_scalar_air;
+pub mod ed25519_scalar_mult_air;
+pub mod ed25519_verify;
+pub mod ed25519_verify_air;
+pub mod ed25519_air;
