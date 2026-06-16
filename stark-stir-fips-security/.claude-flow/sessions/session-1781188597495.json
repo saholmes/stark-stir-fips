@@ -1,0 +1,14 @@
+{
+  "id": "session-1781188597495",
+  "startedAt": "2026-06-11T14:36:37.495Z",
+  "cwd": "/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security",
+  "context": {},
+  "metrics": {
+    "edits": 113,
+    "commands": 0,
+    "tasks": 0,
+    "errors": 0
+  },
+  "endedAt": "2026-06-12T17:10:24.013Z",
+  "duration": 95626519
+}

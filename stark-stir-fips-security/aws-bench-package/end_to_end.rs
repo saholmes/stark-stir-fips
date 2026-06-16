@@ -175,10 +175,8 @@ fn bench_e2e_mf_fri(c: &mut Criterion) {
     let k_hi = 25usize;
 
     let presets: &[(&str, &[usize])] = &[
-        ("2power16",        &[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]),  // un-merged binary FRI
-        ("2power16-merged", &[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]),  // merged binary FRI
-        ("4x4x4-fri",       &[4,4,4,4,4,4,4,4]),                   // un-merged FRI at arity 4 (BCIKS curve)
-        ("4x4x4",           &[4,4,4,4,4,4,4,4]),                   // merged k=4 STIR (CP-leaf)
+        ("2power16", &[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2]),
+        ("4x4x4",    &[4,4,4,4,4,4,4,4]),
         //("884", &[8,8,4]),
         //("paper", &[16, 16, 8]),
         //("mod16", &[16, 16, 16, 16]),
@@ -252,9 +250,8 @@ fn bench_e2e_mf_fri(c: &mut Criterion) {
                 n_trace,
             );
 
-            // Merged construction (stir: true) for both "4x4x4" and "2power16-merged".
-            // Un-merged binary FRI (stir: false) only for the plain "2power16" baseline.
-            let use_stir = label == "4x4x4" || label == "2power16-merged";
+            // STIR mode for the 4x4x4 preset; FRI mode (binary) for 2power16.
+            let use_stir = label == "4x4x4";
             let params = DeepFriParams {
                 schedule: normalized_schedule.clone(),
                 r,
