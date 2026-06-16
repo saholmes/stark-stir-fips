@@ -100,6 +100,7 @@ fn baseline_params() -> (FriProverParams, u64) {
             coeff_commit_final: false,
             d_final: 1,
             stir: false,
+            public_inputs_hash: None,
         },
         0x58_AAAA,
     )
@@ -332,6 +333,7 @@ fn c1_verifier_schedule_mismatch_rejected() {
         coeff_commit_final: false,
         d_final: 1,
         stir: false,
+        public_inputs_hash: None,
     };
 
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| {
