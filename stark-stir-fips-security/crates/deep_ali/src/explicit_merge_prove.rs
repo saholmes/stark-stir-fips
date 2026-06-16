@@ -67,8 +67,9 @@ use crate::explicit_merge::{
 use crate::explicit_merge_air::{build_ood_claims_from_witness, AirOodEvaluator};
 use crate::explicit_merge_layer0::{Layer0Commit, Layer0Opening};
 use crate::fri::{
-    absorb_ext, bind_statement_to_transcript, challenge_ext, FriLayerProofs,
-    LayerOpenPayload, LayerQueryRef, StirProximityPayload,
+    absorb_ext, bind_statement_to_transcript, challenge_ext, fri_rounds_from_f0_ext,
+    FriDomain, FriLayerProofs, FriProverParams, FriProverState, LayerOpenPayload,
+    LayerQueryRef, StirProximityPayload,
 };
 use crate::tower_field::TowerField;
 
@@ -294,6 +295,88 @@ pub struct DeepFriProofExplicit<E: TowerField> {
     /// Merkle config independently.
     pub layer0_tree_label: u64,
     pub trace_width:       usize,
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  prove_explicit_state — layer-0 phase + FRI rounds 1..L
+// ═══════════════════════════════════════════════════════════════
+
+/// Full prover state produced by the explicit-form prover at the end
+/// of the transcript-building phase.  Carries:
+///   - the layer-0 commit (= root_f0 on the wire),
+///   - the OOD claims and merge FS challenges from the layer-0 phase,
+///   - the FRI state (layers 1..L) produced by the extracted
+///     `fri::fri_rounds_from_f0_ext`.
+///
+/// Query-time logic (Merkle openings on layer-0 + per-layer payloads)
+/// runs against this state in P5.4.
+pub struct ExplicitProverState<E: TowerField> {
+    pub layer0_commit:    Layer0Commit,
+    pub ood_claims:       OodClaims<E>,
+    pub merge_challenges: MergeChallenges<E>,
+    pub fri_state:        FriProverState<E>,
+}
+
+/// Run the full explicit-form transcript-building phase end-to-end:
+///
+///   1. `prove_layer0_phase` (P5.2): Layer0Commit + transcript bind
+///      + z draw + OOD claims + γ challenges + merge → f_0_evals_ext.
+///   2. `fri::fri_rounds_from_f0_ext` (P5.3 refactor): trace_hash
+///      draw + FRI rounds 1..L → FriProverState.
+///
+/// Both phases share the SAME Transcript instance (passed through
+/// `Layer0PhaseOutput::transcript`), so the joint FS-binding chain
+/// is unbroken: any FS-sensitive parameter (`seed_z`, `schedule`,
+/// `layer0_tree_label`, OOD claims) propagates through to every
+/// downstream FRI commitment.
+///
+/// The returned `FriProverState::f0_base` is empty (explicit form
+/// does not use base-field layer-0 leaves).  Layer-0 openings go
+/// through `ExplicitProverState::layer0_commit.open(...)` in P5.4.
+pub fn prove_explicit_state<E, A>(
+    witness: &MergeWitness,
+    h0_domain: &[F],
+    air: &A,
+    domain0: FriDomain,
+    fri_params: &FriProverParams,
+    layer0_tree_label: u64,
+) -> ExplicitProverState<E>
+where
+    E: TowerField,
+    A: AirOodEvaluator<E>,
+{
+    let layer0_params = Layer0PhaseParams {
+        schedule: fri_params.schedule.clone(),
+        seed_z: fri_params.seed_z,
+        coeff_commit_final: fri_params.coeff_commit_final,
+        stir: fri_params.stir,
+        layer0_tree_label,
+    };
+
+    let phase: Layer0PhaseOutput<E> = prove_layer0_phase::<E, A>(
+        witness, h0_domain, air, &layer0_params,
+    );
+
+    let root_f0 = phase.layer0_commit.root;
+    let z_ext   = phase.ood_claims.z;
+    let f0_ext  = phase.merge_output.f0_evals_ext.clone();
+
+    let fri_state = fri_rounds_from_f0_ext::<E>(
+        f0_ext,
+        Vec::new(),  // no f0_base in explicit form
+        domain0,
+        fri_params,
+        phase.transcript,
+        z_ext,
+        root_f0,
+    );
+
+    ExplicitProverState {
+        layer0_commit:    phase.layer0_commit,
+        ood_claims:       phase.ood_claims,
+        merge_challenges: phase.merge_challenges,
+        fri_state,
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -587,5 +670,163 @@ mod tests {
         assert_eq!(proof.queries.len(), 1);
         assert_eq!(proof.layer0_tree_label, label);
         assert_eq!(proof.trace_width, 1);
+    }
+
+    // ── prove_explicit_state ── (P5.3 integration)
+
+    fn baseline_fri_params() -> FriProverParams {
+        FriProverParams {
+            schedule: vec![2, 2, 2],
+            seed_z: 0xC0FFEE,
+            coeff_commit_final: false,
+            d_final: 1,
+            stir: false,
+        }
+    }
+
+    /// Honest e2e: prove_explicit_state on a constant-boundary witness
+    /// runs both phases without panic; the FRI state's layer-0 is the
+    /// merge output, the root_f0 is the Layer0Commit root, and z_ext
+    /// is the OOD point.
+    #[test]
+    fn prove_explicit_state_honest_e2e_smoke() {
+        let mut rng = StdRng::seed_from_u64(0x5301_0001);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(13u64));
+        let air = ConstantBoundaryAir { c: F::from(13u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let layer0_tree_label = 0x53_0001u64;
+
+        let state: ExplicitProverState<Ext> = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, layer0_tree_label,
+        );
+
+        // Layer-0 plumbing.
+        assert_eq!(state.fri_state.root_f0, state.layer0_commit.root,
+            "fri_state.root_f0 must equal Layer0Commit::root");
+        assert_eq!(state.fri_state.z_ext, state.ood_claims.z,
+            "fri_state.z_ext must equal OOD point z");
+
+        // FRI rounds populated.
+        let l = fri_params.schedule.len();
+        assert_eq!(state.fri_state.f_layers_ext.len(), l + 1,
+            "f_layers_ext should have schedule.len() + 1 entries");
+        assert_eq!(state.fri_state.transcript.layers.len(), l,
+            "one FriLayerCommitment per fold");
+
+        // Layer-0 f_0 was the Ext-valued merge output, not a base-field lift.
+        assert!(state.fri_state.f_layers_ext[0].iter().any(|v| *v != Ext::zero()),
+            "layer-0 f_0 must be non-trivially populated");
+
+        // FriProverState.f0_base is empty in the explicit form.
+        assert!(state.fri_state.f0_base.is_empty(),
+            "explicit form must not populate FriProverState::f0_base");
+
+        // Every layer root is non-zero.
+        for (ell, c) in state.fri_state.transcript.layers.iter().enumerate() {
+            assert_ne!(c.root, [0u8; HASH_BYTES],
+                "layer {} root unexpectedly all-zero", ell);
+        }
+    }
+
+    /// Determinism: identical inputs → identical state across both
+    /// phases (layer-0 + FRI rounds).  This is the FS-binding chain
+    /// integrity test: every Merkle root from layers 0..L must match
+    /// bit-for-bit.
+    #[test]
+    fn prove_explicit_state_deterministic() {
+        let mut rng = StdRng::seed_from_u64(0x5302_0002);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(21u64));
+        let air = ConstantBoundaryAir { c: F::from(21u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = 0x53_0002u64;
+
+        let a = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label);
+        let b = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label);
+
+        assert_eq!(a.layer0_commit.root, b.layer0_commit.root);
+        assert_eq!(a.ood_claims.z, b.ood_claims.z);
+        assert_eq!(a.fri_state.transcript.layers.len(), b.fri_state.transcript.layers.len());
+        for ((ell, ra), rb) in a.fri_state.transcript.layers.iter().enumerate()
+            .zip(b.fri_state.transcript.layers.iter())
+        {
+            assert_eq!(ra.root, rb.root, "layer {} root mismatch", ell);
+        }
+        assert_eq!(a.fri_state.alpha_layers, b.fri_state.alpha_layers);
+        assert_eq!(a.fri_state.fz_layers, b.fri_state.fz_layers);
+    }
+
+    /// Tamper at layer 0 (witness mutation) must propagate to layer-L
+    /// roots — the FS chain is unbroken end-to-end.
+    #[test]
+    fn tamper_witness_propagates_to_every_fri_layer_root() {
+        let mut rng = StdRng::seed_from_u64(0x5303_0003);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(7u64));
+        let air = ConstantBoundaryAir { c: F::from(7u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = 0x53_0003u64;
+
+        let orig = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label);
+
+        let mut tampered = witness.clone();
+        tampered.trace_columns[0][5] += F::one();
+        let bad = prove_explicit_state::<Ext, _>(
+            &tampered, &h0, &air, domain0, &fri_params, label);
+
+        assert_ne!(orig.layer0_commit.root, bad.layer0_commit.root);
+        // Every layer root differs because the transcript chain feeds
+        // layer ell+1 with material drawn from layer ell.
+        for (ell, (oc, bc)) in orig.fri_state.transcript.layers.iter()
+            .zip(bad.fri_state.transcript.layers.iter()).enumerate()
+        {
+            assert_ne!(oc.root, bc.root,
+                "FS chain broken: layer {} root unchanged after witness tamper", ell);
+        }
+    }
+
+    /// Different `layer0_tree_label` ⇒ different layer-0 root ⇒
+    /// different OOD point z ⇒ different layer-1+ roots.
+    #[test]
+    fn different_tree_label_propagates_through_fri_rounds() {
+        let mut rng = StdRng::seed_from_u64(0x5304_0004);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let (witness, h0) = build_honest_witness(
+            &mut rng, trace_len, blowup, F::from(4u64));
+        let air = ConstantBoundaryAir { c: F::from(4u64) };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+
+        let a = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, 0xAAAA);
+        let b = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, 0xBBBB);
+
+        assert_ne!(a.layer0_commit.root, b.layer0_commit.root);
+        assert_ne!(a.ood_claims.z, b.ood_claims.z);
+        for (ell, (ra, rb)) in a.fri_state.transcript.layers.iter()
+            .zip(b.fri_state.transcript.layers.iter()).enumerate()
+        {
+            assert_ne!(ra.root, rb.root,
+                "layer {} root identical across distinct tree_labels", ell);
+        }
     }
 }

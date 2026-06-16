@@ -1386,10 +1386,7 @@ pub fn fri_build_transcript<E: TowerField>(
     params: &FriProverParams,
 ) -> FriProverState<E> {
     let schedule = params.schedule.clone();
-    let l = schedule.len();
-    let use_coeff_commit = params.coeff_commit_final && l > 0;
     let use_stir = params.stir;
-    let normal_layers = if use_coeff_commit { l - 1 } else { l };
 
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
     bind_statement_to_transcript::<E>(
@@ -1426,9 +1423,54 @@ pub fn fri_build_transcript<E: TowerField>(
 
     let z_ext = challenge_ext::<E>(&mut tr, b"z_fp3");
 
-    let trace_hash: [u8; HASH_BYTES] = transcript_challenge_hash(&mut tr, ds::FRI_SEED);
+    // P5.3 — at this point the classic flow has done: bind, root_f0
+    // absorb, z_ext draw.  The explicit flow does the same followed
+    // by OOD-claims absorb + γ challenges (in `prove_layer0_phase`).
+    // From here on, the work is form-independent: hand off to
+    // `fri_rounds_from_f0_ext`.
 
     let f0_ext: Vec<E> = f0.iter().map(|&x| E::from_fp(x)).collect();
+
+    fri_rounds_from_f0_ext::<E>(
+        f0_ext, f0, domain0, params, tr, z_ext, root_f0,
+    )
+}
+
+/// Run FRI rounds 1..L from an already-lifted Ext-valued proximity
+/// target on `H_0`.
+///
+/// Extracted from `fri_build_transcript` so the explicit-merge prover
+/// (P5.3) can drive the same rounds from a `MergeOutput::f0_evals_ext`
+/// produced by `deep_ali_merge_explicit` (already in `E`), without
+/// duplicating the layer-loop / coeff-commit-final / Merkle-build
+/// logic.
+///
+/// Preconditions on `tr`: the transcript has already absorbed the
+/// statement bind, the layer-0 root, and the FS draws needed by the
+/// caller (z for the classic form; z + OOD claims + γ_1/γ_2/β for
+/// the explicit form).  `z_ext` is the OOD point the caller drew.
+///
+/// `f0_base_for_state` is the base-field layer-0 vector stored in
+/// `FriProverState::f0_base` so the classic `fri_prove_queries` can
+/// rebuild the layer-0 Merkle tree and open at queried positions.
+/// The explicit form passes `Vec::new()` here (Layer-0 opening goes
+/// through `Layer0Commit::open` in that path).
+pub(crate) fn fri_rounds_from_f0_ext<E: TowerField>(
+    f0_ext: Vec<E>,
+    f0_base_for_state: Vec<F>,
+    domain0: FriDomain,
+    params: &FriProverParams,
+    mut tr: Transcript,
+    z_ext: E,
+    root_f0: [u8; HASH_BYTES],
+) -> FriProverState<E> {
+    let schedule = params.schedule.clone();
+    let l = schedule.len();
+    let use_coeff_commit = params.coeff_commit_final && l > 0;
+    let use_stir = params.stir;
+    let normal_layers = if use_coeff_commit { l - 1 } else { l };
+
+    let trace_hash: [u8; HASH_BYTES] = transcript_challenge_hash(&mut tr, ds::FRI_SEED);
 
     let mut f_layers_ext: Vec<Vec<E>> = Vec::with_capacity(l + 1);
     let mut s_layers: Vec<Vec<E>> = Vec::with_capacity(l + 1);
@@ -1674,7 +1716,7 @@ pub fn fri_build_transcript<E: TowerField>(
     s_layers.push(vec![E::zero(); f_layers_ext.last().unwrap().len()]);
 
     FriProverState {
-        f0_base: f0,
+        f0_base: f0_base_for_state,
         f_layers_ext,
         s_layers,
         q_layers,
