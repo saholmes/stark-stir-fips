@@ -946,7 +946,7 @@ fn fill_repeated_targets(target: &mut [F], src: &[F], m: usize) {
     }
 }
 
-fn merkle_depth(leaves: usize, arity: usize) -> usize {
+pub(crate) fn merkle_depth(leaves: usize, arity: usize) -> usize {
     assert!(arity >= 2, "Merkle arity must be ≥ 2");
     let mut depth = 1;
     let mut cur = leaves;
@@ -1040,7 +1040,7 @@ fn hash_node(children: &[[u8; HASH_BYTES]]) -> [u8; HASH_BYTES] {
     finalize_to_digest(h)
 }
 
-fn index_from_seed(seed_f: F, n_pow2: usize) -> usize {
+pub(crate) fn index_from_seed(seed_f: F, n_pow2: usize) -> usize {
     assert!(n_pow2.is_power_of_two());
     let mask = n_pow2 - 1;
     let mut seed_bytes = [0u8; 32];
@@ -1049,7 +1049,7 @@ fn index_from_seed(seed_f: F, n_pow2: usize) -> usize {
     (rng.gen::<u64>() as usize) & mask
 }
 
-fn index_seed(roots_seed: F, ell: usize, q: usize) -> F {
+pub(crate) fn index_seed(roots_seed: F, ell: usize, q: usize) -> F {
     tr_hash_fields_tagged(
         ds::FRI_INDEX,
         &[roots_seed, F::from(ell as u64), F::from(q as u64)],
@@ -1090,7 +1090,7 @@ fn f0_packed_trace_hash(n0: usize, m0: usize, seed_z: u64) -> [u8; HASH_BYTES] {
     finalize_to_digest(h)
 }
 
-fn pick_arity_for_layer(n: usize, requested_m: usize) -> usize {
+pub(crate) fn pick_arity_for_layer(n: usize, requested_m: usize) -> usize {
     if requested_m >= 128 && n % 128 == 0 { return 128; }
     if requested_m >= 64  && n % 64  == 0 { return 64; }
     if requested_m >= 32  && n % 32  == 0 { return 32; }
@@ -1338,7 +1338,7 @@ impl DeepFriParams {
 // ────────────────────────────────────────────────────────────────────────
 
 #[inline]
-fn ext_leaf_fields<E: TowerField>(f: E, s: E, q: E) -> Vec<F> {
+pub(crate) fn ext_leaf_fields<E: TowerField>(f: E, s: E, q: E) -> Vec<F> {
     let mut fields = f.to_fp_components();
     fields.extend(s.to_fp_components());
     fields.extend(q.to_fp_components());
