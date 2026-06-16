@@ -1225,6 +1225,9 @@ pub struct FriProverParams {
     pub coeff_commit_final: bool,
     pub d_final: usize,
     pub stir: bool,
+    /// P6.8 — mirrors DeepFriParams.public_inputs_hash.  None = pre-
+    /// P6.6 byte-identical FS transcript; Some absorbs into the bind.
+    pub public_inputs_hash: Option<[u8; 32]>,
 }
 
 pub struct FriProverState<E: TowerField> {
@@ -1463,13 +1466,14 @@ pub fn fri_build_transcript<E: TowerField>(
     let use_stir = params.stir;
 
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &schedule,
         domain0.size,
         params.seed_z,
         params.coeff_commit_final,
         params.stir,
+        params.public_inputs_hash,
     );
 
     let root_f0 = if use_stir && !schedule.is_empty() {
@@ -2037,6 +2041,7 @@ pub fn deep_fri_prove<E: TowerField>(
         coeff_commit_final: params.coeff_commit_final,
         d_final: params.d_final,
         stir: params.stir,
+        public_inputs_hash: params.public_inputs_hash,
     };
 
     let st: FriProverState<E> = fri_build_transcript(f0, domain0, &prover_params);
@@ -2066,13 +2071,14 @@ pub fn deep_fri_prove<E: TowerField>(
 
     let query_seed = {
         let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-        bind_statement_to_transcript::<E>(
+        bind_statement_to_transcript_with_pi::<E>(
             &mut tr,
             &params.schedule,
             domain0.size,
             params.seed_z,
             params.coeff_commit_final,
             params.stir,
+            params.public_inputs_hash,
         );
         tr.absorb_bytes(&st.root_f0);
 
@@ -2271,13 +2277,14 @@ pub fn deep_fri_verify<E: TowerField>(
     let normal_layers = if use_coeff_commit { L - 1 } else { L };
 
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &params.schedule,
         proof.n0,
         params.seed_z,
         params.coeff_commit_final,
         params.stir,
+        params.public_inputs_hash,
     );
     tr.absorb_bytes(&proof.root_f0);
 

@@ -371,6 +371,12 @@ pub fn deep_ali_merge_general(
     //   Φ̃(ω^i) = Σ_j λ_j · C_j(ω^i)
     let mut phi_eval = vec![F::zero(); n];
 
+    // P6.8 fix: when `parallel` is enabled but `enable_parallel(n)` is
+    // false (n too small), the original code left phi_eval all zeros —
+    // both branches were cfg-gated mutually exclusive on the FEATURE,
+    // ignoring the RUNTIME threshold.  Always run the sequential
+    // fallback when the parallel branch isn't selected.
+    let mut ran_parallel = false;
     if enable_parallel(n) {
         #[cfg(feature = "parallel")]
         {
@@ -381,12 +387,11 @@ pub fn deep_ali_merge_general(
                 }
                 *phi_i = acc;
             });
+            ran_parallel = true;
         }
     }
 
-    // Sequential fallback (also used when parallel is disabled)
-    #[cfg(not(feature = "parallel"))]
-    {
+    if !ran_parallel {
         for i in 0..n {
             let mut acc = F::zero();
             for j in 0..k {

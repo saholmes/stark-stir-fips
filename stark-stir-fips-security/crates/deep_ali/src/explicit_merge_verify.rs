@@ -546,6 +546,7 @@ mod tests {
             coeff_commit_final: false,
             d_final: 1,
             stir: false,
+            public_inputs_hash: None,
         }
     }
 
