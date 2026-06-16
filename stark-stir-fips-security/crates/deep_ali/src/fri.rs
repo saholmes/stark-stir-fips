@@ -69,7 +69,7 @@ fn field_to_le_bytes(f: F) -> [u8; 8] {
 //  Safe field-challenge helper
 // ────────────────────────────────────────────────────────────────────────
 
-fn safe_field_challenge(tr: &mut Transcript, label: &[u8]) -> F {
+pub(crate) fn safe_field_challenge(tr: &mut Transcript, label: &[u8]) -> F {
     let bytes = tr.challenge_bytes(label);
     let mut acc = F::zero();
     for chunk in bytes.rchunks(7) {
@@ -1101,7 +1101,7 @@ fn pick_arity_for_layer(n: usize, requested_m: usize) -> usize {
     1
 }
 
-fn bind_statement_to_transcript<E: TowerField>(
+pub(crate) fn bind_statement_to_transcript<E: TowerField>(
     tr: &mut Transcript,
     schedule: &[usize],
     n0: usize,
@@ -1354,7 +1354,7 @@ fn stir_leaf_fields<E: TowerField>(f: E) -> Vec<F> {
 //  Extension-field challenge helpers
 // ────────────────────────────────────────────────────────────────────────
 
-fn challenge_ext<E: TowerField>(tr: &mut Transcript, tag: &[u8]) -> E {
+pub(crate) fn challenge_ext<E: TowerField>(tr: &mut Transcript, tag: &[u8]) -> E {
     let d = E::DEGREE;
     let mut components = Vec::with_capacity(d);
     for i in 0..d {
@@ -1370,7 +1370,7 @@ fn challenge_ext<E: TowerField>(tr: &mut Transcript, tag: &[u8]) -> E {
         .expect("challenge_ext: failed to build extension element from squeezed components")
 }
 
-fn absorb_ext<E: TowerField>(tr: &mut Transcript, v: E) {
+pub(crate) fn absorb_ext<E: TowerField>(tr: &mut Transcript, v: E) {
     for c in v.to_fp_components() {
         tr.absorb_field(c);
     }

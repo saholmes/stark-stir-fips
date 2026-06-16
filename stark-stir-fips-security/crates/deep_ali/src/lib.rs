@@ -533,3 +533,4 @@ pub mod explicit_merge;
 pub mod explicit_merge_layer0;
 pub mod explicit_merge_ood_check;
 pub mod explicit_merge_air;
+pub mod explicit_merge_prove;
