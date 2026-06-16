@@ -20,6 +20,19 @@ blake3-hash = ["hash/blake3-hash", "merkle/blake3-hash", "transcript/blake3-hash
 # clean until the wrappers are ported.
 p256-merge-helpers = []
 
+# P6.4: ML-DSA-v2 NIST PQ level selection — mutually exclusive.
+# mldsa-44 = NIST L1 (λ=128), mldsa-65 = L3 (λ=192), mldsa-87 = L5 (λ=256).
+# Exactly one must be enabled when the ML-DSA AIRs are used.
+mldsa-44 = []
+mldsa-65 = []
+mldsa-87 = []
+
+# P6.4: gates ML-DSA tests that depend on dust-stark-only helpers
+# (trace_import::lde_trace_columns, stark_level, sub_air_with_trace,
+# binding_cells_commit, deep_ali_merge_ml_dsa_*).  Same pattern as
+# p256-merge-helpers — bench/integration tests gated, lib unaffected.
+mldsa-merge-helpers = []
+
 [dependencies]
 ark-ff = { version = "0.4.2" }
 ark-poly = "0.4.2"
@@ -37,6 +50,7 @@ ark-goldilocks = { path = "../ark-goldilocks" }
 num-bigint = "0.4"
 num-traits = "0.2"
 sha2 = "0.10"
+sha3 = "0.10"
 
 
 

@@ -570,3 +570,42 @@ pub mod p256_ecdsa;
 pub mod p256_ecdsa_air;
 pub mod p256_ecdsa_air_v2;
 pub mod p256_ecdsa_double_multirow_air;
+
+// P6.4 — ML-DSA-v2 four-sub-AIR composite + Keccak-f1600 dependency
+// ported from dust-stark.  This is the paper's headline contribution
+// (V17 + INTT + COEFF + TRANSCRIPT).
+pub mod keccak_f1600;
+pub mod keccak_f1600_air;
+pub mod ml_dsa;
+pub mod ml_dsa_codec;
+pub mod ml_dsa_field;
+pub mod ml_dsa_field_air;
+pub mod ml_dsa_ntt;
+pub mod ml_dsa_ntt_air;
+pub mod ml_dsa_ntt_chained_air;
+pub mod ml_dsa_intt_via_t7;
+pub mod ml_dsa_decompose;
+pub mod ml_dsa_decompose_air;
+pub mod ml_dsa_norm_check;
+pub mod ml_dsa_norm_check_air;
+pub mod ml_dsa_sample_in_ball;
+pub mod ml_dsa_sample_in_ball_t1_t2;
+pub mod ml_dsa_w1_encode;
+pub mod ml_dsa_w1_encode_air;
+pub mod ml_dsa_use_hint_air;
+pub mod ml_dsa_rej_chunk_air;
+pub mod ml_dsa_rej_count_air;
+pub mod ml_dsa_shake_absorb_air;
+pub mod ml_dsa_shake_absorb_multi_air;
+pub mod ml_dsa_shake_squeeze_air;
+pub mod ml_dsa_expand_a_one_lite;
+pub mod ml_dsa_transcript;
+pub mod ml_dsa_verify_air;
+pub mod ml_dsa_verify_air_v15;
+pub mod ml_dsa_verify_air_v17;
+pub mod ml_dsa_verify_air_v2_layout;
+// v2_orchestration uses dust-stark-only utilities (stark_level,
+// sub_air_with_trace, binding_cells_commit, trace_import).
+// Gated until those are ported in a follow-up.
+#[cfg(feature = "mldsa-merge-helpers")]
+pub mod ml_dsa_verify_air_v2_orchestration;
