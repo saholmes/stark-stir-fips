@@ -535,3 +535,9 @@ pub mod explicit_merge_ood_check;
 pub mod explicit_merge_air;
 pub mod explicit_merge_prove;
 pub mod explicit_merge_verify;
+
+// P6.1 — RSA-2048 signature AIR ported from dust-stark.
+pub mod rsa2048;
+pub mod rsa2048_field_air;
+pub mod rsa2048_exp_air;
+pub mod rsa2048_stacked_air;

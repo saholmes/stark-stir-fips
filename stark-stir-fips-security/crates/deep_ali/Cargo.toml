@@ -29,6 +29,9 @@ merkle    = { path = "../merkle",    default-features = false }
 transcript = { path = "../transcript", default-features = false }
 poseidon = { path = "../poseidon" }
 ark-goldilocks = { path = "../ark-goldilocks" }
+num-bigint = "0.4"
+num-traits = "0.2"
+sha2 = "0.10"
 
 
 
