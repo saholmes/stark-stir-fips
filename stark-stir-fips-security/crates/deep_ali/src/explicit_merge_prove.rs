@@ -1474,13 +1474,38 @@ mod tests {
         assert!(n % blowup == 0, "n={} must be divisible by blowup={}", n, blowup);
         let trace_len = n / blowup;
 
-        // Schedule: fold all the way down to a final size of 4.  This
-        // matches the canonical "binary fold to small final" pattern.
-        let final_size = 4usize;
-        assert!(n >= final_size && (n / final_size).is_power_of_two(),
-            "n / final_size must be a power of two");
-        let n_folds = (n / final_size).trailing_zeros() as usize;
-        let schedule: Vec<usize> = vec![2usize; n_folds];
+        // Schedule: either user-supplied (EXPLICIT_SCHEDULE="4,4,4,4,4,4,4,4")
+        // or default to binary fold down to final_size = 4.
+        let schedule: Vec<usize> = match env::var("EXPLICIT_SCHEDULE") {
+            Ok(s) => s.split(',')
+                .map(|x| x.trim().parse::<usize>()
+                    .unwrap_or_else(|_| panic!("EXPLICIT_SCHEDULE parse: {}", x)))
+                .collect(),
+            Err(_) => {
+                let final_size = 4usize;
+                assert!(n >= final_size && (n / final_size).is_power_of_two(),
+                    "n / final_size must be a power of two");
+                let n_folds = (n / final_size).trailing_zeros() as usize;
+                vec![2usize; n_folds]
+            }
+        };
+
+        // Validate schedule shape against n.
+        let total_fold: usize = schedule.iter().product();
+        assert!(n % total_fold == 0,
+            "schedule product {} must divide n = {}", total_fold, n);
+        let final_size = n / total_fold;
+        assert!(final_size >= 1, "schedule too aggressive: final_size = 0");
+        assert!(final_size.is_power_of_two(),
+            "schedule yields non-power-of-two final_size = {}", final_size);
+
+        // d_final: max degree of the final polynomial.  Defaults to 1
+        // (constant) — matches the canonical STIR fold-to-constant
+        // setup.  Override via EXPLICIT_D_FINAL.
+        let d_final: usize = env::var("EXPLICIT_D_FINAL").ok()
+            .and_then(|s| s.parse().ok()).unwrap_or(1);
+        assert!(d_final <= final_size,
+            "d_final={} > final_size={}", d_final, final_size);
 
         let mut rng = StdRng::seed_from_u64(0xBE_5959u64);
         let c = F::from(42u64);
@@ -1491,7 +1516,7 @@ mod tests {
             schedule: schedule.clone(),
             seed_z: 0x59_AC0,
             coeff_commit_final: false,
-            d_final: trace_len,
+            d_final,
             stir: false,
         };
         let domain0 = FriDomain::new_radix2(n);
