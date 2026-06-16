@@ -554,3 +554,19 @@ pub mod ed25519_scalar_mult_air;
 pub mod ed25519_verify;
 pub mod ed25519_verify_air;
 pub mod ed25519_air;
+
+// P6.3 — ECDSA-p256 signature AIR ported from dust-stark.
+pub mod p256_field;
+pub mod p256_field_air;
+pub mod p256_group;
+pub mod p256_group_air;
+pub mod p256_scalar;
+pub mod p256_scalar_air;
+pub mod p256_scalar_mul_air;
+pub mod p256_scalar_mul_multirow_air;
+pub mod p256_fermat_air;
+pub mod p256_fp_fermat_air;
+pub mod p256_ecdsa;
+pub mod p256_ecdsa_air;
+pub mod p256_ecdsa_air_v2;
+pub mod p256_ecdsa_double_multirow_air;
