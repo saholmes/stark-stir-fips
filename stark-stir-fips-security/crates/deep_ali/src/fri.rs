@@ -1752,6 +1752,49 @@ pub fn fri_prove_queries<E: TowerField>(
     r: usize,
     query_seed: F,
 ) -> (Vec<FriQueryOpenings>, Vec<[u8; HASH_BYTES]>, FriLayerProofs, Vec<MerkleOpening>) {
+    let (all_refs, roots, layer_proofs) =
+        fri_prove_layer_openings_only::<E>(st, r, query_seed);
+
+    let n0 = st.transcript.layers.first().map_or(0, |l| l.n);
+    let f0_th = f0_trace_hash(n0, st.seed_z);
+    let f0_cfg = f0_tree_config(n0);
+    let mut f0_tree = MerkleTreeChannel::new(f0_cfg, f0_th);
+    for &val in &st.f0_base {
+        f0_tree.push_leaf(&[val]);
+    }
+    f0_tree.finalize();
+
+    let mut f0_openings = Vec::with_capacity(r);
+    for q in 0..r {
+        let idx = all_refs[q].per_layer_refs[0].i;
+        f0_openings.push(f0_tree.open(idx));
+    }
+
+    (all_refs, roots, layer_proofs, f0_openings)
+}
+
+/// Form-independent FRI-rounds query / opening logic.
+///
+/// Extracted from `fri_prove_queries` so the explicit-merge prover
+/// (P5.5) can reuse the per-layer Merkle build + opening without
+/// rebuilding the single-element-leaf layer-0 tree from
+/// `FriProverState::f0_base` (which is empty in the explicit form;
+/// layer-0 opening goes through `Layer0Commit::open` instead).
+///
+/// Returns:
+///   - `all_refs`: per-query per-layer index refs (and `final_index`).
+///   - `roots`: per-layer Merkle roots.
+///   - `layer_proofs`: per-layer Merkle openings (one per query per
+///     layer), shaped identically to `FriLayerProofs`.
+///
+/// The classic `fri_prove_queries` calls this then adds layer-0
+/// f0_openings from `st.f0_base`.  The explicit-form query path
+/// calls this then opens layer 0 via `Layer0Commit::open`.
+pub(crate) fn fri_prove_layer_openings_only<E: TowerField>(
+    st: &FriProverState<E>,
+    r: usize,
+    query_seed: F,
+) -> (Vec<FriQueryOpenings>, Vec<[u8; HASH_BYTES]>, FriLayerProofs) {
     let L = st.transcript.schedule.len();
     let mut all_refs = Vec::with_capacity(r);
     let n0 = st.transcript.layers.first().map_or(0, |l| l.n);
@@ -1786,20 +1829,6 @@ pub fn fri_prove_queries<E: TowerField>(
         });
     }
 
-    let f0_th = f0_trace_hash(n0, st.seed_z);
-    let f0_cfg = f0_tree_config(n0);
-    let mut f0_tree = MerkleTreeChannel::new(f0_cfg, f0_th);
-    for &val in &st.f0_base {
-        f0_tree.push_leaf(&[val]);
-    }
-    f0_tree.finalize();
-
-    let mut f0_openings = Vec::with_capacity(r);
-    for q in 0..r {
-        let idx = all_refs[q].per_layer_refs[0].i;
-        f0_openings.push(f0_tree.open(idx));
-    }
-
     let mut layer_proofs = Vec::with_capacity(L);
 
     for ell in 0..L {
@@ -1829,7 +1858,7 @@ pub fn fri_prove_queries<E: TowerField>(
 
     let roots: Vec<[u8; HASH_BYTES]> = st.transcript.layers.iter().map(|l| l.root).collect();
 
-    (all_refs, roots, FriLayerProofs { layers: layer_proofs }, f0_openings)
+    (all_refs, roots, FriLayerProofs { layers: layer_proofs })
 }
 
 // =============================================================================

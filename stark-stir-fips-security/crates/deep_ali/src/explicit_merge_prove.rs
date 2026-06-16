@@ -67,9 +67,9 @@ use crate::explicit_merge::{
 use crate::explicit_merge_air::{build_ood_claims_from_witness, AirOodEvaluator};
 use crate::explicit_merge_layer0::{Layer0Commit, Layer0Opening};
 use crate::fri::{
-    absorb_ext, bind_statement_to_transcript, challenge_ext, fri_rounds_from_f0_ext,
-    FriDomain, FriLayerProofs, FriProverParams, FriProverState, LayerOpenPayload,
-    LayerQueryRef, StirProximityPayload,
+    absorb_ext, bind_statement_to_transcript, challenge_ext, fri_prove_layer_openings_only,
+    fri_rounds_from_f0_ext, FriDomain, FriLayerProofs, FriProverParams, FriProverState,
+    LayerOpenPayload, LayerQueryRef, StirProximityPayload,
 };
 use crate::tower_field::TowerField;
 
@@ -380,6 +380,66 @@ where
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  prove_explicit_queries — query / opening assembly
+// ═══════════════════════════════════════════════════════════════
+
+/// Open the explicit-form prover state at `r` FS-derived query
+/// positions.
+///
+/// Reuses the form-independent layer-1..L tree-build + opening logic
+/// extracted from `fri_prove_queries` (P5.5: `fri_prove_layer_openings_only`).
+/// Layer-0 opening goes through `Layer0Commit::open`, producing a
+/// `Layer0Opening` per query that carries the `(T_1, …, T_w, Q, R)`
+/// payload plus the Merkle authentication path.
+///
+/// Returns the per-query `FriQueryPayloadExplicit` list, the
+/// per-layer Merkle proofs (layer 1..L openings), and the per-layer
+/// roots.  Callers assemble a `DeepFriProofExplicit` from these
+/// plus the post-merge final-poly + STIR-specific fields.
+pub fn prove_explicit_queries<E: TowerField>(
+    state: &ExplicitProverState<E>,
+    r: usize,
+    query_seed: F,
+) -> (Vec<FriQueryPayloadExplicit<E>>, FriLayerProofs, Vec<[u8; HASH_BYTES]>) {
+    let (all_refs, roots, layer_proofs) =
+        fri_prove_layer_openings_only::<E>(&state.fri_state, r, query_seed);
+
+    let schedule_len = state.fri_state.transcript.schedule.len();
+
+    let mut queries = Vec::with_capacity(r);
+    for q_refs in all_refs.into_iter() {
+        // Per-layer (f, s, q) extension payloads.
+        let mut payloads = Vec::with_capacity(schedule_len);
+        for (ell, rref) in q_refs.per_layer_refs.iter().enumerate() {
+            payloads.push(LayerOpenPayload {
+                f_val: state.fri_state.f_layers_ext[ell][rref.i],
+                s_val: state.fri_state.s_layers[ell][rref.i],
+                q_val: if state.fri_state.q_layers[ell].is_empty() {
+                    use ark_ff::Zero;
+                    E::zero()
+                } else {
+                    state.fri_state.q_layers[ell][rref.i]
+                },
+            });
+        }
+
+        // Layer-0 opening: from Layer0Commit, not from the f0-tree
+        // path that fri_prove_queries uses for the classic form.
+        let layer0_idx = q_refs.per_layer_refs[0].i;
+        let layer0_opening = state.layer0_commit.open(layer0_idx);
+
+        queries.push(FriQueryPayloadExplicit {
+            per_layer_refs:     q_refs.per_layer_refs,
+            per_layer_payloads: payloads,
+            layer0_opening,
+            final_index:        q_refs.final_index,
+        });
+    }
+
+    (queries, layer_proofs, roots)
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  Tests
 // ═══════════════════════════════════════════════════════════════
 
@@ -684,6 +744,34 @@ mod tests {
         }
     }
 
+    fn baseline_layer0_params() -> Layer0PhaseParams {
+        Layer0PhaseParams {
+            schedule: vec![2, 2, 2],
+            seed_z: 0xC0FFEE,
+            coeff_commit_final: false,
+            stir: false,
+            layer0_tree_label: 0x55_AAAA,
+        }
+    }
+
+    fn run_honest_prover(
+        seed: u64, c_val: u64,
+    ) -> (ExplicitProverState<Ext>, MergeWitness, Vec<F>, usize, ConstantBoundaryAir, FriProverParams) {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let c = F::from(c_val);
+        let (witness, h0) = build_honest_witness(&mut rng, trace_len, blowup, c);
+        let air = ConstantBoundaryAir { c };
+        let fri_params = baseline_fri_params();
+        let domain0 = FriDomain::new_radix2(n);
+        let label = baseline_layer0_params().layer0_tree_label;
+        let state = prove_explicit_state::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, label);
+        (state, witness, h0, trace_len, air, fri_params)
+    }
+
     /// Honest e2e: prove_explicit_state on a constant-boundary witness
     /// runs both phases without panic; the FRI state's layer-0 is the
     /// merge output, the root_f0 is the Layer0Commit root, and z_ext
@@ -828,5 +916,113 @@ mod tests {
             assert_ne!(ra.root, rb.root,
                 "layer {} root identical across distinct tree_labels", ell);
         }
+    }
+
+    // ── prove_explicit_queries ── (P5.5)
+
+    /// Honest e2e: produce r=4 queries and verify each Layer0Opening
+    /// reconstructs the prover's f_0 at the queried H_0 position.
+    /// Also confirms per-layer payloads match the prover state at
+    /// the per-layer indices.
+    #[test]
+    fn prove_explicit_queries_honest_layer0_reconstruction_matches_prover_f0() {
+        use merkle::MerkleChannelCfg;
+        let (state, _w, h0, _trace_len, _air, fri_params) =
+            run_honest_prover(0x5505_0001, 17);
+
+        let r = 4usize;
+        let query_seed = F::from(0xBABEu64);
+        let (queries, _layer_proofs, _roots) =
+            prove_explicit_queries::<Ext>(&state, r, query_seed);
+        assert_eq!(queries.len(), r);
+
+        // Build the verifier-side Merkle config for layer-0.
+        let n0 = state.fri_state.f_layers_ext[0].len();
+        let depth = (n0.next_power_of_two().trailing_zeros() as usize).max(1);
+        let layer0_label = baseline_layer0_params().layer0_tree_label;
+        let cfg = MerkleChannelCfg::new(vec![2usize; depth], layer0_label);
+
+        // Toy AIR uses Σ = {1}; the verifier-side reconstruction
+        // needs the same shift slice.
+        let shifts: &[F] = &[F::one()];
+        let trace_len = 8usize;
+        let d0 = (2usize - 1) * trace_len - 1;
+
+        for q in &queries {
+            // Per-layer payloads agree with the prover state.
+            for (ell, (rref, pay)) in
+                q.per_layer_refs.iter().zip(q.per_layer_payloads.iter()).enumerate()
+            {
+                assert_eq!(pay.f_val, state.fri_state.f_layers_ext[ell][rref.i],
+                    "f_val mismatch at layer {}", ell);
+                assert_eq!(pay.s_val, state.fri_state.s_layers[ell][rref.i],
+                    "s_val mismatch at layer {}", ell);
+            }
+
+            // Layer-0 opening: Merkle path verifies AND reconstruction
+            // matches the prover-side f_0 at this position.
+            let idx = q.per_layer_refs[0].i;
+            let recon = q.layer0_opening
+                .verify_and_reconstruct::<Ext>(
+                    &cfg, state.layer0_commit.root, h0[idx],
+                    shifts,
+                    &state.ood_claims,
+                    &state.merge_challenges,
+                    trace_len,
+                    d0,
+                )
+                .expect("Merkle verify + reconstruct must succeed");
+
+            // Bit-for-bit match with prover's f_0 at this position.
+            assert_eq!(recon, state.fri_state.f_layers_ext[0][idx],
+                "verifier-reconstructed f_0 at idx {} differs from prover", idx);
+        }
+
+        let _ = fri_params;
+    }
+
+    /// Determinism: same (state, r, query_seed) → identical query
+    /// data (per-layer refs, payloads, layer0_opening payloads).
+    #[test]
+    fn prove_explicit_queries_deterministic() {
+        let (state, _w, _h0, _trace_len, _air, _fri_params) =
+            run_honest_prover(0x5505_0002, 19);
+        let r = 3usize;
+        let query_seed = F::from(0xFEEDu64);
+        let (a, _, _) = prove_explicit_queries::<Ext>(&state, r, query_seed);
+        let (b, _, _) = prove_explicit_queries::<Ext>(&state, r, query_seed);
+        assert_eq!(a.len(), b.len());
+        for (qa, qb) in a.iter().zip(b.iter()) {
+            assert_eq!(qa.final_index, qb.final_index);
+            assert_eq!(qa.per_layer_refs.len(), qb.per_layer_refs.len());
+            for (ra, rb) in qa.per_layer_refs.iter().zip(qb.per_layer_refs.iter()) {
+                assert_eq!(ra.i, rb.i);
+                assert_eq!(ra.child_pos, rb.child_pos);
+                assert_eq!(ra.parent_index, rb.parent_index);
+            }
+            assert_eq!(qa.layer0_opening.index, qb.layer0_opening.index);
+            assert_eq!(qa.layer0_opening.leaf.trace_values,
+                       qb.layer0_opening.leaf.trace_values);
+            assert_eq!(qa.layer0_opening.leaf.q_value, qb.layer0_opening.leaf.q_value);
+            assert_eq!(qa.layer0_opening.leaf.r_value, qb.layer0_opening.leaf.r_value);
+        }
+    }
+
+    /// Different query_seed ⇒ different query positions (at least
+    /// one differs across the r queries).
+    #[test]
+    fn prove_explicit_queries_query_seed_changes_positions() {
+        let (state, _w, _h0, _trace_len, _air, _fri_params) =
+            run_honest_prover(0x5505_0003, 23);
+        let r = 4usize;
+        let (a, _, _) = prove_explicit_queries::<Ext>(&state, r, F::from(0x1111u64));
+        let (b, _, _) = prove_explicit_queries::<Ext>(&state, r, F::from(0x2222u64));
+
+        let diff_count = a.iter().zip(b.iter())
+            .filter(|(qa, qb)|
+                qa.per_layer_refs[0].i != qb.per_layer_refs[0].i)
+            .count();
+        assert!(diff_count > 0,
+            "distinct query_seeds must yield at least one distinct layer-0 index");
     }
 }
