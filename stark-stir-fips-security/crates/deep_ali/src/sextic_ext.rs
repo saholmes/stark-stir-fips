@@ -109,6 +109,57 @@ pub struct QuadExt<C: QuadExtConfig> {
     _marker: PhantomData<C>,
 }
 
+// P6.7 — manual CanonicalSerialize / CanonicalDeserialize / Valid
+// impls.  See quad_ext.rs for rationale.
+
+impl<C> ark_serialize::CanonicalSerialize for QuadExt<C>
+where
+    C: QuadExtConfig,
+    C::Base: ark_serialize::CanonicalSerialize,
+{
+    fn serialize_with_mode<W: ark_serialize::Write>(
+        &self,
+        mut writer: W,
+        compress: ark_serialize::Compress,
+    ) -> Result<(), ark_serialize::SerializationError> {
+        self.c[0].serialize_with_mode(&mut writer, compress)?;
+        self.c[1].serialize_with_mode(&mut writer, compress)?;
+        Ok(())
+    }
+
+    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
+        self.c[0].serialized_size(compress) + self.c[1].serialized_size(compress)
+    }
+}
+
+impl<C> ark_serialize::Valid for QuadExt<C>
+where
+    C: QuadExtConfig,
+    C::Base: ark_serialize::Valid,
+{
+    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
+        self.c[0].check()?;
+        self.c[1].check()?;
+        Ok(())
+    }
+}
+
+impl<C> ark_serialize::CanonicalDeserialize for QuadExt<C>
+where
+    C: QuadExtConfig,
+    C::Base: ark_serialize::CanonicalDeserialize,
+{
+    fn deserialize_with_mode<R: ark_serialize::Read>(
+        mut reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, ark_serialize::SerializationError> {
+        let c0 = C::Base::deserialize_with_mode(&mut reader, compress, validate)?;
+        let c1 = C::Base::deserialize_with_mode(&mut reader, compress, validate)?;
+        Ok(QuadExt { c: [c0, c1], _marker: PhantomData })
+    }
+}
+
 // ──────────────── Display / Debug / Default ────────────────────────
 
 impl<C: QuadExtConfig> fmt::Debug for QuadExt<C> {

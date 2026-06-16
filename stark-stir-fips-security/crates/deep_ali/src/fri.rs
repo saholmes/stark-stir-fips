@@ -8,6 +8,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use ark_poly::domain::radix2::Radix2EvaluationDomain as Domain;
 use ark_ff::{Field, One, PrimeField, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_poly::{
     EvaluationDomain, GeneralEvaluationDomain,
 };
@@ -1250,7 +1251,7 @@ pub struct FriProverState<E: TowerField> {
     pub stir: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct LayerQueryRef {
     pub i: usize,
     pub child_pos: usize,
@@ -1264,14 +1265,14 @@ pub struct FriQueryOpenings {
     pub final_index: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct LayerOpenPayload<E: TowerField> {
     pub f_val: E,
     pub s_val: E,
     pub q_val: E,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FriQueryPayload<E: TowerField> {
     pub per_layer_refs: Vec<LayerQueryRef>,
     pub per_layer_payloads: Vec<LayerOpenPayload<E>>,
@@ -1279,7 +1280,7 @@ pub struct FriQueryPayload<E: TowerField> {
     pub final_index: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct StirProximityPayload<E: TowerField> {
     pub base_index: usize,
     pub raw_query_index: usize,
@@ -1290,17 +1291,17 @@ pub struct StirProximityPayload<E: TowerField> {
     pub layer1_opening: Option<MerkleOpening>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct LayerProof {
     pub openings: Vec<MerkleOpening>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct FriLayerProofs {
     pub layers: Vec<LayerProof>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct DeepFriProof<E: TowerField> {
     pub root_f0: [u8; HASH_BYTES],
     pub roots: Vec<[u8; HASH_BYTES]>,

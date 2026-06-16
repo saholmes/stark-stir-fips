@@ -30,6 +30,9 @@ pub trait TowerField:
     + Sync
     + Zero
     + One
+    + ark_serialize::CanonicalSerialize
+    + ark_serialize::CanonicalDeserialize
+    + ark_serialize::Valid
     + Add<Output = Self>
     + AddAssign
     + Sub<Output = Self>
