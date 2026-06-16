@@ -609,3 +609,41 @@ pub mod ml_dsa_verify_air_v2_layout;
 // Gated until those are ported in a follow-up.
 #[cfg(feature = "mldsa-merge-helpers")]
 pub mod ml_dsa_verify_air_v2_orchestration;
+
+// P6.4b — supporting helpers ported from dust-stark/lib.rs to unlock
+// the gated tests/modules from P6.3/P6.4.
+pub mod sha256_air;
+pub mod permutation_argument;
+pub mod streaming;
+pub mod merge_wrappers;
+
+// Re-export merge wrappers at the crate root to match dust-stark's API.
+// The ported AIR test code uses `crate::deep_ali_merge_*` paths.
+pub use merge_wrappers::{
+    deep_ali_merge_ed25519_verify,
+    deep_ali_merge_general_streaming,
+    deep_ali_merge_ml_dsa_v17,
+    deep_ali_merge_p256_ecdsa_streaming,
+    deep_ali_merge_p256_ecdsa_v2_streaming,
+    deep_ali_merge_per_row_no_layout,
+    deep_ali_merge_rsa_stacked_streaming,
+    deep_ali_merge_sha256,
+    deep_ali_merge_sha512,
+    deep_ali_merge_t7_chained_ntt,
+    deep_ali_merge_t_decompose,
+    deep_ali_merge_t_mem,
+    deep_ali_merge_t_transcript,
+    deep_ali_merge_t_use_hint,
+    deep_ali_merge_t_w1_encode,
+    stark_level,
+    use_stir_from_env,
+};
+// sub_air_with_trace + binding_cells_commit depend on serialization
+// features that stark-stir-fips's fri.rs doesn't expose
+// (DeepFriProof : CanonicalSerialize, MerkleOpening : CanonicalSerialize,
+// derive_z_ext_for_proof).  Gated under mldsa-merge-helpers until the
+// fri.rs ABI is extended.
+#[cfg(feature = "mldsa-merge-helpers")]
+pub mod sub_air_with_trace;
+#[cfg(feature = "mldsa-merge-helpers")]
+pub mod binding_cells_commit;

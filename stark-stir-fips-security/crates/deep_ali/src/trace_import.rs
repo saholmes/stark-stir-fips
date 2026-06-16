@@ -3,6 +3,7 @@
 use ark_goldilocks::Goldilocks as F;
 use ark_ff::Zero;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain as Domain};
+use std::collections::HashMap;
 
 /// Four evaluation vectors over the FRI domain, derived from a real
 /// execution trace rather than random sampling.
@@ -184,4 +185,149 @@ pub fn import_winterfell_trace(path: &str, n0: usize) -> RealTraceInputs {
     let t_eval = lde(&columns[3 % num_cols]);
 
     RealTraceInputs { a_eval, s_eval, e_eval, t_eval }
+}
+// ═══════════════════════════════════════════════════════════════════
+//  StarkWare column-major JSON trace import
+// ═══════════════════════════════════════════════════════════════════
+
+/// Import a StarkWare column-major JSON string.
+///
+/// Column values are u64 Goldilocks field elements.
+/// Column ordering follows `column_order` when provided, otherwise sorted by name.
+/// Returns raw trace columns as `Vec<Vec<F>>` (not LDE-evaluated).
+/// Call `lde_trace_columns` on the result before `deep_ali_merge_general`.
+pub fn import_starkware_json(
+    json_str: &str,
+    column_order: Option<&[&str]>,
+) -> Result<Vec<Vec<F>>, String> {
+    let v: serde_json::Value = serde_json::from_str(json_str)
+        .map_err(|e| format!("JSON parse error: {e}"))?;
+
+    let length = v["length"].as_u64()
+        .ok_or("missing 'length' field")? as usize;
+    let cols_val = v["columns"].as_object()
+        .ok_or("'columns' must be an object")?;
+
+    let extract = |name: &str| -> Result<Vec<F>, String> {
+        let arr = cols_val.get(name)
+            .ok_or_else(|| format!("column '{name}' not found"))?
+            .as_array()
+            .ok_or_else(|| format!("column '{name}' must be an array"))?;
+        if arr.len() != length {
+            return Err(format!("column '{name}': expected {length} rows, got {}", arr.len()));
+        }
+        arr.iter().map(|v| {
+            v.as_u64()
+                .ok_or_else(|| format!("column '{name}' has non-u64 value: {v}"))
+                .map(F::from)
+        }).collect()
+    };
+
+    let names: Vec<String> = if let Some(order) = column_order {
+        order.iter().map(|s| s.to_string()).collect()
+    } else {
+        let mut names: Vec<String> = cols_val.keys().cloned().collect();
+        names.sort();
+        names
+    };
+
+    names.iter().map(|name| extract(name)).collect()
+}
+
+/// Import a StarkWare JSON trace file from disk.
+pub fn import_starkware_json_file(
+    path: &str,
+    column_order: Option<&[&str]>,
+) -> Result<Vec<Vec<F>>, String> {
+    let s = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read '{path}': {e}"))?;
+    import_starkware_json(&s, column_order)
+}
+
+/// LDE-evaluate all columns of a raw trace.
+///
+/// Each column must have `trace_len` elements.  Returns columns evaluated
+/// on an `n0 = trace_len * blowup`-point domain, ready for `deep_ali_merge_general`.
+pub fn lde_trace_columns(
+    columns: &[Vec<F>],
+    trace_len: usize,
+    blowup: usize,
+) -> Result<Vec<Vec<F>>, String> {
+    if columns.is_empty() {
+        return Err("no columns provided".into());
+    }
+    for (i, col) in columns.iter().enumerate() {
+        if col.len() != trace_len {
+            return Err(format!("column {i}: expected {trace_len} rows, got {}", col.len()));
+        }
+    }
+    if !trace_len.is_power_of_two() {
+        return Err(format!("trace_len {trace_len} must be a power of 2"));
+    }
+    if blowup < 2 || !blowup.is_power_of_two() {
+        return Err(format!("blowup {blowup} must be a power-of-2 >= 2"));
+    }
+
+    let n0 = trace_len * blowup;
+    let trace_dom = Domain::<F>::new(trace_len).unwrap();
+    let lde_dom = Domain::<F>::new(n0).unwrap();
+
+    columns.iter().map(|col| {
+        let coeffs = trace_dom.ifft(col);
+        let mut padded = coeffs;
+        padded.resize(n0, F::zero());
+        Ok(lde_dom.fft(&padded))
+    }).collect()
+}
+
+#[cfg(test)]
+mod starkware_tests {
+    use super::*;
+
+    #[test]
+    fn import_starkware_json_basic() {
+        let json = r#"{
+            "format": "starkware-v1",
+            "width": 3,
+            "length": 4,
+            "columns": {
+                "pc": [0, 1, 2, 3],
+                "ap": [100, 101, 102, 103],
+                "fp": [100, 100, 100, 100]
+            }
+        }"#;
+        let cols = import_starkware_json(json, None).unwrap();
+        assert_eq!(cols.len(), 3);
+        assert_eq!(cols[0].len(), 4);
+    }
+
+    #[test]
+    fn import_starkware_json_ordered() {
+        let json = r#"{
+            "format": "starkware-v1",
+            "width": 3,
+            "length": 4,
+            "columns": {
+                "pc": [10, 11, 12, 13],
+                "ap": [100, 101, 102, 103],
+                "fp": [200, 200, 200, 200]
+            }
+        }"#;
+        let order = ["pc", "ap", "fp"];
+        let cols = import_starkware_json(json, Some(&order)).unwrap();
+        assert_eq!(cols.len(), 3);
+        assert_eq!(cols[0][0], F::from(10u64));
+        assert_eq!(cols[1][0], F::from(100u64));
+    }
+
+    #[test]
+    fn lde_trace_columns_produces_correct_size() {
+        let cols: Vec<Vec<F>> = vec![
+            (0u64..8).map(F::from).collect(),
+            (0u64..8).map(F::from).collect(),
+        ];
+        let lde = lde_trace_columns(&cols, 8, 4).unwrap();
+        assert_eq!(lde.len(), 2);
+        assert_eq!(lde[0].len(), 32);
+    }
 }
