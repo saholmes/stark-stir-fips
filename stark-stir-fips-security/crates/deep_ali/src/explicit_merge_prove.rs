@@ -719,17 +719,23 @@ mod tests {
     ) -> (MergeWitness, Vec<F>) {
         let n = trace_len * blowup;
         let omega_n: F = F::get_root_of_unity(n as u64).expect("two-adic root");
-        let h0: Vec<F> = (0..n).map(|i| omega_n.pow_u64(i as u64)).collect();
 
-        // Random Q of degree ≤ T-1.
+        // H_0 via cumulative multiply (O(n) instead of O(n log n) pow_u64).
+        let mut h0 = Vec::with_capacity(n);
+        let mut h_acc = F::one();
+        for _ in 0..n {
+            h0.push(h_acc);
+            h_acc *= omega_n;
+        }
+
+        // Random Q of degree ≤ T-1, LDE'd to H_0 via FFT (replaces the
+        // O(n·T) naive Horner — bottleneck at large k).
         let q_t_evals: Vec<F> = (0..trace_len).map(|_| F::rand(rng)).collect();
         let q_domain = GeneralEvaluationDomain::<F>::new(trace_len).unwrap();
-        let q_coeffs: Vec<F> = q_domain.ifft(&q_t_evals);
-        let q_on_h0: Vec<F> = h0.iter().map(|&x| {
-            let mut acc = F::zero();
-            for &cc in q_coeffs.iter().rev() { acc = acc * x + cc; }
-            acc
-        }).collect();
+        let mut q_coeffs: Vec<F> = q_domain.ifft(&q_t_evals);
+        q_coeffs.resize(n, F::zero());
+        let n_domain = GeneralEvaluationDomain::<F>::new(n).unwrap();
+        let q_on_h0: Vec<F> = n_domain.fft(&q_coeffs);
 
         // T(x) = Q(x) · Z_H(x) + c.
         let t_on_h0: Vec<F> = h0.iter().zip(q_on_h0.iter())
