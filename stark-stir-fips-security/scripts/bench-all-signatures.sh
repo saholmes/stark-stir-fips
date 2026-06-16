@@ -50,9 +50,9 @@ CELLS=(
     "RSA-2048    L1 sha3-256 Fp6 parallel,sha3-256,mldsa-44 rsa2048"
     "Ed25519     L1 sha3-256 Fp6 parallel,sha3-256             ed25519"
     "ECDSA-p256  L1 sha3-256 Fp6 parallel,sha3-256             ecdsa"
-    "ML-DSA-44   L1 sha3-256 Fp6 parallel,sha3-256,mldsa-44 mldsa_v2"
-    "ML-DSA-65   L3 sha3-384 Fp6 parallel,sha3-384,mldsa-65 mldsa_v2"
-    "ML-DSA-87   L5 sha3-512 Fp8 parallel,sha3-512,mldsa-87 mldsa_v2"
+    "ML-DSA-44   L1 sha3-256 Fp6 parallel,sha3-256,mldsa-44,mldsa-merge-helpers mldsa_v2"
+    "ML-DSA-65   L3 sha3-384 Fp6 parallel,sha3-384,mldsa-65,mldsa-merge-helpers mldsa_v2"
+    "ML-DSA-87   L5 sha3-512 Fp8 parallel,sha3-512,mldsa-87,mldsa-merge-helpers mldsa_v2"
 )
 # NOTE: `poseidon-accel` (paper dual-hash §8) is plumbed end-to-end
 # (merkle → deep_ali → swarm-dns) but intentionally NOT enabled for these
