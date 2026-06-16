@@ -34,3 +34,13 @@ criterion = "0.5"
 ark-goldilocks = { path = "./crates/ark-goldilocks", version = "0.1.0" }
 sha3 = "0.10"
 digest = "0.10"
+# P6.10 — vendor an ark-ff 0.4.2 with the `const_helpers.rs` two-line
+# debug_assert relaxation patch.  ark-ff 0.4.2 (and 0.5.0) ships an
+# over-strict `debug_assert!(num_bytes > 8 * (N - 1), "index too small")`
+# in both `write_up_to` and `read_exact_up_to` that fires on valid
+# 1-limb Goldilocks `serialize_compressed` calls (N=1, num_bytes
+# legitimately 0..8).  Release strips the assert; the body is
+# correct.  See memory `feedback_ark_ff_042_debug_assert_blocker.md`
+# for the diagnosis trail and portable 4-step fix pattern.
+[patch.crates-io]
+ark-ff = { path = "vendor/ark-ff-0.4.2" }
