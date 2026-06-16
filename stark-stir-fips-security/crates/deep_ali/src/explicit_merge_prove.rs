@@ -615,6 +615,76 @@ where
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  Proof-size accounting
+// ═══════════════════════════════════════════════════════════════
+
+/// Approximate wire-format byte count for an explicit-form proof.
+///
+/// Mirrors `fri::deep_fri_proof_size_bytes` for the classic form but
+/// with the layer-0 swap accounted for:
+///   - `f0_openings` (each: leaf hash + path) is replaced by per-query
+///     `layer0_opening` carrying the wider `(T_1, …, T_w, Q, R)` leaf
+///     payload PLUS the Merkle authentication path.
+///   - `ood_claims` is carried on the wire explicitly (one E for `z`,
+///     `w · k` E values for `trace_at_shifts`, one E for `q_at_z`).
+///
+/// Field elements assumed 8 bytes (Goldilocks); extension elements
+/// `E::DEGREE * 8` bytes.  Merkle nodes `HASH_BYTES` each.
+pub fn deep_fri_proof_explicit_size_bytes<E: TowerField>(
+    p: &DeepFriProofExplicit<E>,
+) -> usize {
+    const FIELD_BYTES: usize = 8;
+    let ext_bytes: usize = E::DEGREE * FIELD_BYTES;
+
+    let mut bytes = 0usize;
+
+    // root_f0
+    bytes += HASH_BYTES;
+
+    // Per-layer roots (layer 1..L commitments).
+    bytes += p.roots.len() * HASH_BYTES;
+
+    // OOD claims: z + trace_at_shifts + q_at_z
+    bytes += ext_bytes; // z
+    for col in &p.ood_claims.trace_at_shifts {
+        bytes += col.len() * ext_bytes;
+    }
+    bytes += ext_bytes; // q_at_z
+
+    // fz_per_layer
+    bytes += p.fz_per_layer.len() * ext_bytes;
+
+    // final_poly_coeffs
+    bytes += p.final_poly_coeffs.len() * ext_bytes;
+
+    // Per-query: layer-0 opening + per-layer payloads.
+    for q in &p.queries {
+        // per_layer_payloads: (f, s, q) × |schedule|
+        bytes += q.per_layer_payloads.len() * 3 * ext_bytes;
+
+        // Layer-0 opening: leaf payload + Merkle path.
+        bytes += q.layer0_opening.leaf.trace_values.len() * FIELD_BYTES; // T_1..T_w
+        bytes += 2 * FIELD_BYTES;                                         // Q + R
+        bytes += HASH_BYTES;                                              // leaf hash
+        for level in &q.layer0_opening.merkle_opening.path {
+            bytes += level.len() * HASH_BYTES;
+        }
+    }
+
+    // Per-layer Merkle openings.
+    for layer in &p.layer_proofs.layers {
+        for opening in &layer.openings {
+            bytes += HASH_BYTES;
+            for level in &opening.path {
+                bytes += level.len() * HASH_BYTES;
+            }
+        }
+    }
+
+    bytes
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  Tests
 // ═══════════════════════════════════════════════════════════════
 
@@ -1357,5 +1427,105 @@ mod tests {
         let domain0 = FriDomain::new_radix2(n);
         let _ = deep_fri_prove_explicit::<Ext, _>(
             &witness, &h0, &air, domain0, &fri_params, 0, 1);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  P5.9 — Bench harness
+    // ═══════════════════════════════════════════════════════════
+
+    /// Bench the explicit-form prove + verify pipeline at user-set
+    /// parameters.  `#[ignore]`d like `stir_halve::tests::
+    /// canonical_k22_proof_size`; run with `--ignored --nocapture`
+    /// to emit the report.
+    ///
+    /// Env vars (with defaults sane for a 1024-row LDE):
+    ///   EXPLICIT_K_LOG       log2(n)             default 10
+    ///   EXPLICIT_BLOWUP      blowup factor       default 4
+    ///   EXPLICIT_R           query count r       default 30
+    ///   EXPLICIT_LABEL       free-form label     default "explicit-l1"
+    ///   EXPLICIT_CSV_APPEND  CSV path to append  default (no append)
+    ///
+    /// CSV row format (no header; the sweep wrapper supplies one):
+    ///   label,k_log,n,trace_len,blowup,r,prove_ms,verify_ms,proof_bytes
+    #[test]
+    #[ignore]
+    fn explicit_form_bench_one_cell() {
+        use std::env;
+        use std::io::Write;
+        use std::time::Instant;
+
+        let k_log: usize = env::var("EXPLICIT_K_LOG").ok()
+            .and_then(|s| s.parse().ok()).unwrap_or(10);
+        let blowup: usize = env::var("EXPLICIT_BLOWUP").ok()
+            .and_then(|s| s.parse().ok()).unwrap_or(4);
+        let r: usize = env::var("EXPLICIT_R").ok()
+            .and_then(|s| s.parse().ok()).unwrap_or(30);
+        let label: String = env::var("EXPLICIT_LABEL")
+            .unwrap_or_else(|_| "explicit-l1".to_string());
+        let csv_append: Option<String> = env::var("EXPLICIT_CSV_APPEND").ok();
+
+        let n: usize = 1usize << k_log;
+        assert!(n % blowup == 0, "n={} must be divisible by blowup={}", n, blowup);
+        let trace_len = n / blowup;
+
+        // Schedule: fold all the way down to a final size of 4.  This
+        // matches the canonical "binary fold to small final" pattern.
+        let final_size = 4usize;
+        assert!(n >= final_size && (n / final_size).is_power_of_two(),
+            "n / final_size must be a power of two");
+        let n_folds = (n / final_size).trailing_zeros() as usize;
+        let schedule: Vec<usize> = vec![2usize; n_folds];
+
+        let mut rng = StdRng::seed_from_u64(0xBE_5959u64);
+        let c = F::from(42u64);
+        let (witness, h0) = build_honest_witness(&mut rng, trace_len, blowup, c);
+        let air = ConstantBoundaryAir { c };
+
+        let fri_params = FriProverParams {
+            schedule: schedule.clone(),
+            seed_z: 0x59_AC0,
+            coeff_commit_final: false,
+            d_final: trace_len,
+            stir: false,
+        };
+        let domain0 = FriDomain::new_radix2(n);
+        let layer0_label = 0x5959_0001u64;
+
+        // Prove.
+        let t0 = Instant::now();
+        let proof = deep_fri_prove_explicit::<Ext, _>(
+            &witness, &h0, &air, domain0, &fri_params, layer0_label, r);
+        let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
+
+        // Verify.
+        let t1 = Instant::now();
+        use crate::explicit_merge_verify::deep_fri_verify_explicit;
+        let result = deep_fri_verify_explicit::<Ext, _>(
+            &proof, &air, trace_len, &fri_params, domain0);
+        let verify_ms = t1.elapsed().as_secs_f64() * 1000.0;
+        assert!(result.accepted, "bench proof rejected by verifier");
+
+        let proof_bytes = deep_fri_proof_explicit_size_bytes::<Ext>(&proof);
+
+        eprintln!();
+        eprintln!("=== Explicit-form bench: {} ===", label);
+        eprintln!("  k_log={}, n={}, trace_len={}, blowup={}, r={}",
+            k_log, n, trace_len, blowup, r);
+        eprintln!("  schedule = {:?}", schedule);
+        eprintln!("  Prove  : {:.2} ms", prove_ms);
+        eprintln!("  Verify : {:.2} ms", verify_ms);
+        eprintln!("  Proof  : {} bytes ({:.2} KiB)",
+            proof_bytes, proof_bytes as f64 / 1024.0);
+
+        if let Some(path) = csv_append {
+            let mut f = std::fs::OpenOptions::new()
+                .create(true).append(true).open(&path)
+                .expect("open EXPLICIT_CSV_APPEND");
+            writeln!(f,
+                "{},{},{},{},{},{},{:.3},{:.3},{}",
+                label, k_log, n, trace_len, blowup, r,
+                prove_ms, verify_ms, proof_bytes,
+            ).expect("write CSV row");
+        }
     }
 }
