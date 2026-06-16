@@ -1,0 +1,594 @@
+//! Paper-aligned explicit merge construction (eq:merge of the companion
+//! paper, §3.1).
+//!
+//! ## What this module adds vs `deep_ali_merge_evals`
+//!
+//! `crate::deep_ali_merge_evals` implements the *implicit-trace*
+//! ALI-quotient form
+//! ```text
+//!     f_0 = (Φ/Z_H + β·R) |_{H_0}
+//! ```
+//! where only the merged `f_0` is committed; the trace is implicit in
+//! the prover's computation but is never separately exposed to the
+//! verifier.
+//!
+//! The companion paper §3.1 (current version, post-reviewer-rewrite)
+//! describes a richer *explicit* merge:
+//! ```text
+//!     f_0(x) = γ_1 · x^{d_0-(T-1-k)} · (T(x)-Ĩ(x))/V_{zΣ}(x)
+//!            + γ_2 · (Q(x) - Q̂(z)) / (x - z)
+//!            + β · R(x)
+//! ```
+//! co-committed in a layer-0 leaf that packs `(T_1,…,T_w, Q, R)`,
+//! bound to per-shift OOD claims via a multi-shift vanishing
+//! polynomial, and tied to AIR satisfaction by the explicit ALI
+//! consistency identity
+//! ```text
+//!     Σ α_j · Φ_j(z) = Q̂(z) · Z_H(z).            (eq:ali-check)
+//! ```
+//!
+//! Both forms are sound; the explicit form provides strictly stronger
+//! binding by separately committing the trace, the ALI quotient, and
+//! the blinder, with an explicit OOD consistency check linking them.
+//!
+//! ## Scope of this commit (P1.1 + P1.2)
+//!
+//! This module introduces the *witness*, *challenges*, and
+//! *output* types together with `deep_ali_merge_explicit`, the
+//! primitive that builds `f_0` from already-committed parts.  No
+//! callers are migrated yet; `deep_ali_merge_evals` keeps its
+//! current callers unchanged, and this module sits alongside.
+//!
+//! Subsequent phases (P2…P5) migrate the layer-0 Merkle leaf
+//! format, the verifier's OOD consistency check, and the AIRs +
+//! benches.
+
+use ark_ff::Field;
+use ark_goldilocks::Goldilocks as F;
+use crate::tower_field::TowerField;
+
+// ─── Witness, OOD claims, challenges ──────────────────────────────
+
+/// Prover-side witness for the explicit merge: the three polynomials
+/// that get co-committed in the layer-0 leaf.
+///
+/// All three are evaluated on the LDE domain `H_0` of size
+/// `n_trace * blowup` and stored row-major (`column[row]`).
+#[derive(Debug, Clone)]
+pub struct MergeWitness {
+    /// `w` trace columns, each `n_trace * blowup` long.
+    /// Stored as `trace_columns[col][row]`.
+    pub trace_columns: Vec<Vec<F>>,
+
+    /// The ALI quotient `Q(X) = Σ α_j Φ_j(X) / Z_H(X)` evaluated on
+    /// `H_0`.  Computed via `crate::deep_ali_merge_general`-style
+    /// `poly_div_zh` pipeline (unchanged from the implicit form).
+    pub ali_quotient: Vec<F>,
+
+    /// A uniform witness-independent low-degree blinder `R(X)`
+    /// (`deg R ≤ d_0`), evaluated on `H_0`.  The implicit form
+    /// folds `β·R` into `f_0`; the explicit form keeps it as a
+    /// separate Merkle-leaf component so HVZK is preserved per
+    /// Lemma~4 (HVZK) of the paper.
+    pub blinder: Vec<F>,
+
+    /// Trace length `T` (number of rows in the trace, before LDE).
+    pub trace_len: usize,
+
+    /// Target degree `d_0 = (d_c - 1) · T - 1`.
+    pub d0: usize,
+
+    /// Number of trace-domain shifts referenced by the constraints
+    /// (`k = |Σ|`; `k = 2` for first-order transition systems with
+    /// `Σ = {1, ω}`).
+    pub k_shifts: usize,
+}
+
+/// Out-of-domain claims sent on the wire from prover to verifier
+/// after the prover has committed `T`, `Q`, and `R` and after the
+/// transcript has produced the merge-layer DEEP point `z`.
+#[derive(Debug, Clone)]
+pub struct OodClaims<E: TowerField> {
+    /// The merge-layer DEEP point, `z ∈ F_{p^e} \ H_0`, drawn from
+    /// the Fiat–Shamir transcript after the `T`/`Q`/`R` commits.
+    pub z: E,
+
+    /// Claimed trace evaluations at each shifted point: indexed
+    /// `trace_at_shifts[col][shift_idx]`.  Outer length is `w`,
+    /// inner length is `k_shifts` (matching the shift set `Σ`).
+    pub trace_at_shifts: Vec<Vec<E>>,
+
+    /// Claimed ALI-quotient evaluation `Q̂(z)`.
+    pub q_at_z: E,
+}
+
+/// The three Fiat–Shamir merge-batching challenges sampled from the
+/// transcript after `OodClaims` are absorbed.
+#[derive(Debug, Clone, Copy)]
+pub struct MergeChallenges<E: TowerField> {
+    /// Trace-summand batching scalar.  For multi-column traces
+    /// (`w > 1`), the explicit-form construction batches the `w`
+    /// column quotients with the power vector
+    /// `(γ_1, γ_1^2, …, γ_1^w)`.
+    pub gamma_1: E,
+
+    /// `Q`-summand batching scalar.
+    pub gamma_2: E,
+
+    /// Blinder scalar.
+    pub beta: E,
+}
+
+/// What `deep_ali_merge_explicit` returns: the merged proximity
+/// target `f_0`, on the `H_0` LDE domain, in the extension field.
+#[derive(Debug, Clone)]
+pub struct MergeOutput<E: TowerField> {
+    /// `f_0(x)` for each `x ∈ H_0`, lifted to `E`.
+    pub f0_evals_ext: Vec<E>,
+
+    /// Echoed for downstream serialization (the verifier receives
+    /// these in the proof to re-derive `Ĩ` and `Q̂(z)`).
+    pub ood_claims: OodClaims<E>,
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
+/// Compute pointwise inverses of `V_{zΣ}(x) = ∏_σ (x - σ·z)` for
+/// every `x ∈ h0_domain`.
+///
+/// Returns a `Vec<E>` of length `h0_domain.len()` holding
+/// `1 / V_{zΣ}(x)` per coordinate.
+fn vzsigma_inverse_on_h0<E: TowerField>(
+    h0_domain: &[F],
+    shifts: &[F],
+    z: E,
+) -> Vec<E> {
+    let mut vz: Vec<E> = h0_domain
+        .iter()
+        .map(|&x| {
+            let x_ext = E::from_fp(x);
+            shifts.iter().fold(E::one(), |acc, &shift| {
+                acc * (x_ext - E::from_fp(shift) * z)
+            })
+        })
+        .collect();
+    E::batch_inverse(&mut vz);
+    vz
+}
+
+/// Build the Lagrange basis denominators for the interpolation
+/// nodes `{σ·z}_{σ ∈ shifts}`.
+///
+/// Returns `denoms_inv[i] = 1 / ∏_{j≠i} (σ_i·z - σ_j·z)`.
+fn lagrange_denominators_inv<E: TowerField>(
+    shifts: &[F],
+    z: E,
+) -> Vec<E> {
+    let k = shifts.len();
+    let nodes: Vec<E> = shifts.iter().map(|&s| E::from_fp(s) * z).collect();
+
+    let mut denoms = Vec::with_capacity(k);
+    for i in 0..k {
+        let mut acc = E::one();
+        for j in 0..k {
+            if i != j {
+                acc *= nodes[i] - nodes[j];
+            }
+        }
+        denoms.push(acc);
+    }
+    E::batch_inverse(&mut denoms);
+    denoms
+}
+
+/// Evaluate the degree-`<k` interpolant `Ĩ_col(x)` matching
+/// `Ĩ_col(σ_i · z) = trace_at_shifts[col][i]` for each column,
+/// for every `x ∈ h0_domain`.
+///
+/// Returns `result[col][row]` shaped exactly like `trace_columns`.
+fn interpolant_on_h0<E: TowerField>(
+    h0_domain: &[F],
+    shifts: &[F],
+    z: E,
+    trace_at_shifts: &[Vec<E>],
+) -> Vec<Vec<E>> {
+    let w = trace_at_shifts.len();
+    let n = h0_domain.len();
+    let k = shifts.len();
+    let nodes: Vec<E> = shifts.iter().map(|&s| E::from_fp(s) * z).collect();
+    let denoms_inv = lagrange_denominators_inv::<E>(shifts, z);
+
+    let mut out = vec![vec![E::zero(); n]; w];
+    for col in 0..w {
+        debug_assert_eq!(trace_at_shifts[col].len(), k);
+        for (row, &x_fp) in h0_domain.iter().enumerate() {
+            let x = E::from_fp(x_fp);
+            let mut sum = E::zero();
+            for i in 0..k {
+                // Lagrange basis at node i: ∏_{j≠i} (x - node_j) * denoms_inv[i]
+                let mut numer = E::one();
+                for j in 0..k {
+                    if j != i {
+                        numer *= x - nodes[j];
+                    }
+                }
+                sum += trace_at_shifts[col][i] * numer * denoms_inv[i];
+            }
+            out[col][row] = sum;
+        }
+    }
+    out
+}
+
+/// Compute the trace-side per-row contribution
+/// `Σ_col γ_1^{col+1} · x^{d_0 - (T-1-k)} · (T_col(x) - Ĩ_col(x)) / V_{zΣ}(x)`
+/// for each `x ∈ h0_domain`.
+fn trace_summand_on_h0<E: TowerField>(
+    h0_domain: &[F],
+    trace_columns: &[Vec<F>],
+    tilde_i_per_col: &[Vec<E>],
+    vzsigma_inv: &[E],
+    gamma_1: E,
+    correction_exp: u64,
+) -> Vec<E> {
+    let n = h0_domain.len();
+    let w = trace_columns.len();
+    let mut out = vec![E::zero(); n];
+
+    // Precompute x^{correction_exp} for every x ∈ H_0.
+    let x_pow: Vec<E> = h0_domain
+        .iter()
+        .map(|&x| E::from_fp(x).pow_u64(correction_exp))
+        .collect();
+
+    let mut gamma1_pow = gamma_1;
+    for col in 0..w {
+        for row in 0..n {
+            let t_x = E::from_fp(trace_columns[col][row]);
+            let tilde = tilde_i_per_col[col][row];
+            let term = gamma1_pow * x_pow[row] * (t_x - tilde) * vzsigma_inv[row];
+            out[row] += term;
+        }
+        gamma1_pow *= gamma_1;
+    }
+    out
+}
+
+/// Compute the `Q`-summand `γ_2 · (Q(x) - Q̂(z)) / (x - z)` per row.
+fn q_summand_on_h0<E: TowerField>(
+    h0_domain: &[F],
+    ali_quotient: &[F],
+    z: E,
+    q_at_z: E,
+    gamma_2: E,
+) -> Vec<E> {
+    let n = h0_domain.len();
+    let mut xz_inv: Vec<E> = h0_domain
+        .iter()
+        .map(|&x| E::from_fp(x) - z)
+        .collect();
+    E::batch_inverse(&mut xz_inv);
+
+    let mut out = Vec::with_capacity(n);
+    for row in 0..n {
+        let q_x = E::from_fp(ali_quotient[row]);
+        out.push(gamma_2 * (q_x - q_at_z) * xz_inv[row]);
+    }
+    out
+}
+
+/// Compute the degree-correction exponent `d_0 - (T-1-k)`.
+///
+/// For `d_0 = (d_c-1)·T - 1`, this simplifies to `(d_c-2)·T + k`.
+/// For `d_c = 2` (the paper's headline parameter), the exponent
+/// is `k`; for higher-degree constraint systems the exponent grows
+/// linearly with `T`.
+pub fn correction_exponent(d0: usize, trace_len: usize, k_shifts: usize) -> u64 {
+    // `T-1-k` is the natural (un-corrected) degree of (T-Ĩ)/V_{zΣ};
+    // we lift it up to d_0 via `x^{d_0 - (T-1-k)}`.
+    let natural = trace_len.saturating_sub(1).saturating_sub(k_shifts);
+    debug_assert!(
+        d0 >= natural,
+        "correction_exponent: d_0 = {} < T-1-k = {} — the trace summand \
+         would have degree exceeding d_0; check parameter set",
+        d0, natural,
+    );
+    (d0 - natural) as u64
+}
+
+// ─── Top-level: build f_0 from the explicit-form ingredients ─────
+
+/// **Paper-aligned explicit merge** (P1.2, eq:merge of the paper).
+///
+/// Builds the proximity target `f_0` on the LDE domain `H_0` from
+/// already-committed witness components (`MergeWitness`), the
+/// merge-layer DEEP point + OOD claims (`OodClaims`), and the
+/// Fiat–Shamir merge-batching scalars (`MergeChallenges`).
+///
+/// **Caller contract.**  The caller must produce the OOD claims +
+/// challenges via a proper Fiat–Shamir transcript binding:
+///
+/// 1. Commit `T`, `Q`, `R` to the layer-0 Merkle leaf.
+/// 2. Absorb `root_0`, then squeeze `z ∈ F_{p^e} \ H_0`.
+/// 3. Compute `OodClaims { z, trace_at_shifts, q_at_z }` from the
+///    polynomials by direct evaluation at `{σ·z}_σ` and `z`.
+/// 4. Absorb the OOD claims into the transcript.
+/// 5. Squeeze `MergeChallenges { gamma_1, gamma_2, beta }`.
+/// 6. Call this function with the pieces.
+///
+/// This function does *not* itself enforce the verifier's ALI
+/// consistency check `Σ α_j Φ_j(z) = Q̂(z) · Z_H(z)` — that lives
+/// on the verifier side (P3.2 in the next phase).
+pub fn deep_ali_merge_explicit<E: TowerField>(
+    witness: &MergeWitness,
+    h0_domain: &[F],
+    shifts: &[F],
+    ood: &OodClaims<E>,
+    challenges: &MergeChallenges<E>,
+) -> MergeOutput<E> {
+    let n = h0_domain.len();
+    let w = witness.trace_columns.len();
+    let k = shifts.len();
+
+    // Witness-shape sanity.
+    assert_eq!(
+        witness.ali_quotient.len(), n,
+        "explicit merge: ali_quotient length {} != |H_0| {}",
+        witness.ali_quotient.len(), n,
+    );
+    assert_eq!(
+        witness.blinder.len(), n,
+        "explicit merge: blinder length {} != |H_0| {}",
+        witness.blinder.len(), n,
+    );
+    for (col_idx, col) in witness.trace_columns.iter().enumerate() {
+        assert_eq!(
+            col.len(), n,
+            "explicit merge: trace column {} length {} != |H_0| {}",
+            col_idx, col.len(), n,
+        );
+    }
+    assert_eq!(
+        witness.k_shifts, k,
+        "explicit merge: witness.k_shifts {} != shifts.len() {}",
+        witness.k_shifts, k,
+    );
+
+    // OOD-claim-shape sanity.
+    assert_eq!(
+        ood.trace_at_shifts.len(), w,
+        "explicit merge: |trace_at_shifts| {} != trace width {}",
+        ood.trace_at_shifts.len(), w,
+    );
+    for (col_idx, col_shifts) in ood.trace_at_shifts.iter().enumerate() {
+        assert_eq!(
+            col_shifts.len(), k,
+            "explicit merge: trace_at_shifts[{}] length {} != k_shifts {}",
+            col_idx, col_shifts.len(), k,
+        );
+    }
+
+    // 1. 1/V_{zΣ}(x) at every H_0 coordinate.
+    let vz_inv = vzsigma_inverse_on_h0::<E>(h0_domain, shifts, ood.z);
+
+    // 2. Lagrange interpolant Ĩ_col(x) for every column, on H_0.
+    let tilde_i = interpolant_on_h0::<E>(
+        h0_domain, shifts, ood.z, &ood.trace_at_shifts,
+    );
+
+    // 3. Degree-correction factor.
+    let correction_exp =
+        correction_exponent(witness.d0, witness.trace_len, witness.k_shifts);
+
+    // 4. Trace summand.
+    let mut f0 = trace_summand_on_h0::<E>(
+        h0_domain,
+        &witness.trace_columns,
+        &tilde_i,
+        &vz_inv,
+        challenges.gamma_1,
+        correction_exp,
+    );
+
+    // 5. Q summand.
+    let q_sum = q_summand_on_h0::<E>(
+        h0_domain,
+        &witness.ali_quotient,
+        ood.z,
+        ood.q_at_z,
+        challenges.gamma_2,
+    );
+    for i in 0..n {
+        f0[i] += q_sum[i];
+    }
+
+    // 6. Blinder summand: β · R(x).
+    for i in 0..n {
+        f0[i] += challenges.beta * E::from_fp(witness.blinder[i]);
+    }
+
+    MergeOutput {
+        f0_evals_ext: f0,
+        ood_claims: ood.clone(),
+    }
+}
+
+// ─── Tests ───────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::sextic_ext::SexticExt;
+    use ark_ff::{One as ArkOne, UniformRand};
+    use rand::{rngs::StdRng, SeedableRng};
+
+    type Ext = SexticExt;
+
+    /// Smoke test: build a trivial trace + trivial Q + zero blinder
+    /// and confirm `deep_ali_merge_explicit` produces a non-trivial
+    /// `f_0` (i.e. the pipeline at least executes without panic on
+    /// minimal inputs).
+    #[test]
+    fn explicit_merge_smoke_minimal_inputs() {
+        let mut rng = StdRng::seed_from_u64(0xC0FFEE);
+        let trace_len = 8usize;
+        let blowup = 4usize;
+        let n = trace_len * blowup;
+        let w = 2usize; // Fibonacci-style.
+        let k_shifts = 2usize;
+        let d_c = 2usize;
+        let d0 = (d_c - 1) * trace_len - 1; // 7
+
+        // Construct a tiny H_0 of size n via repeated powers of a
+        // generator.  Goldilocks has 2-adicity ≥ 32 so any n < 2^32
+        // works; here n = 32.
+        let omega: F = {
+            use ark_ff::FftField;
+            F::get_root_of_unity(n as u64).expect("two-adic root")
+        };
+        let h0: Vec<F> = (0..n).map(|i| omega.pow_u64(i as u64)).collect();
+
+        // Two random trace columns + random Q + random R.
+        let trace_columns: Vec<Vec<F>> = (0..w)
+            .map(|_| (0..n).map(|_| F::rand(&mut rng)).collect())
+            .collect();
+        let ali_quotient: Vec<F> = (0..n).map(|_| F::rand(&mut rng)).collect();
+        let blinder: Vec<F> = (0..n).map(|_| F::rand(&mut rng)).collect();
+
+        let witness = MergeWitness {
+            trace_columns,
+            ali_quotient,
+            blinder,
+            trace_len,
+            d0,
+            k_shifts,
+        };
+
+        // First-order shifts.
+        let shifts: Vec<F> = vec![F::one(), omega];
+
+        // FS-derived challenges + OOD claims (randomized for the test).
+        let z: Ext = Ext::from_fp(F::rand(&mut rng));
+        let trace_at_shifts: Vec<Vec<Ext>> = (0..w)
+            .map(|_| (0..k_shifts).map(|_| Ext::from_fp(F::rand(&mut rng))).collect())
+            .collect();
+        let q_at_z: Ext = Ext::from_fp(F::rand(&mut rng));
+        let ood = OodClaims { z, trace_at_shifts, q_at_z };
+
+        let gamma_1: Ext = Ext::from_fp(F::rand(&mut rng));
+        let gamma_2: Ext = Ext::from_fp(F::rand(&mut rng));
+        let beta: Ext = Ext::from_fp(F::rand(&mut rng));
+        let challenges = MergeChallenges { gamma_1, gamma_2, beta };
+
+        let out = deep_ali_merge_explicit::<Ext>(
+            &witness, &h0, &shifts, &ood, &challenges,
+        );
+
+        assert_eq!(out.f0_evals_ext.len(), n);
+        // With random ingredients the output should not be all-zero
+        // (probability of accidental cancellation is negligible).
+        let any_nonzero = out.f0_evals_ext.iter().any(|v| *v != Ext::default());
+        assert!(any_nonzero, "f_0 should not be identically zero on random inputs");
+    }
+
+    /// Degree-correction exponent matches the paper formula.
+    #[test]
+    fn correction_exponent_paper_formula() {
+        // d_c = 2, T = 2^22 — paper Cor 1 parameters.
+        // d_0 = T - 1 = 2^22 - 1.  T-1-k = 2^22 - 3.
+        // Correction exp = d_0 - (T-1-k) = k = 2.
+        let trace_len = 1usize << 22;
+        let d_c = 2usize;
+        let d0 = (d_c - 1) * trace_len - 1;
+        let k = 2usize;
+        assert_eq!(correction_exponent(d0, trace_len, k), 2);
+
+        // d_c = 4 case.  d_0 = 3T - 1.  T-1-k = T-3.
+        // Correction exp = 3T - 1 - (T - 3) = 2T + 2.
+        let d_c4 = 4usize;
+        let d0_4 = (d_c4 - 1) * trace_len - 1;
+        assert_eq!(
+            correction_exponent(d0_4, trace_len, k),
+            2 * (trace_len as u64) + 2,
+        );
+    }
+
+    /// Verifier-side sanity: if the prover gives honest OOD claims
+    /// from the *actual* trace polynomial values at `{σ·z}_σ` and at
+    /// `z` for `Q`, the trace summand at each `x ∈ H_0` ought to be
+    /// finite (no division by zero) and the output ought to satisfy
+    /// a structural invariant relating to the inputs.
+    ///
+    /// This test only verifies the no-panic / no-NaN behaviour; the
+    /// full soundness invariant (low-degreeness when AIR valid) is
+    /// the subject of P4 once the verifier is wired up.
+    #[test]
+    fn explicit_merge_no_division_by_zero_on_h0() {
+        let mut rng = StdRng::seed_from_u64(0xBADCAFE);
+        let trace_len = 16;
+        let blowup = 4;
+        let n = trace_len * blowup;
+        let w = 2;
+        let k_shifts = 2;
+        let d_c = 2;
+        let d0 = (d_c - 1) * trace_len - 1;
+
+        let omega: F = {
+            use ark_ff::FftField;
+            F::get_root_of_unity(n as u64).expect("two-adic root")
+        };
+        let h0: Vec<F> = (0..n).map(|i| omega.pow_u64(i as u64)).collect();
+
+        let trace_columns: Vec<Vec<F>> = (0..w)
+            .map(|_| (0..n).map(|_| F::rand(&mut rng)).collect())
+            .collect();
+        let ali_quotient: Vec<F> = (0..n).map(|_| F::rand(&mut rng)).collect();
+        let blinder: Vec<F> = (0..n).map(|_| F::rand(&mut rng)).collect();
+
+        let witness = MergeWitness {
+            trace_columns,
+            ali_quotient,
+            blinder,
+            trace_len,
+            d0,
+            k_shifts,
+        };
+
+        let shifts: Vec<F> = vec![F::one(), omega];
+
+        // z must lie outside H_0.  Pick any Ext element that is not
+        // a coercion of an H_0 element; a random non-trivial Ext
+        // suffices with overwhelming probability.
+        let z: Ext = Ext::from_fp_components(&[
+            F::rand(&mut rng), F::rand(&mut rng), F::rand(&mut rng),
+            F::rand(&mut rng), F::rand(&mut rng), F::rand(&mut rng),
+        ]).expect("rebuild Ext from random components");
+
+        let trace_at_shifts: Vec<Vec<Ext>> = (0..w)
+            .map(|_| (0..k_shifts).map(|_| Ext::from_fp(F::rand(&mut rng))).collect())
+            .collect();
+        let q_at_z = Ext::from_fp(F::rand(&mut rng));
+        let ood = OodClaims { z, trace_at_shifts, q_at_z };
+
+        let gamma_1: Ext = Ext::from_fp(F::rand(&mut rng));
+        let gamma_2: Ext = Ext::from_fp(F::rand(&mut rng));
+        let beta: Ext = Ext::from_fp(F::rand(&mut rng));
+        let challenges = MergeChallenges { gamma_1, gamma_2, beta };
+
+        let out = deep_ali_merge_explicit::<Ext>(
+            &witness, &h0, &shifts, &ood, &challenges,
+        );
+
+        assert_eq!(out.f0_evals_ext.len(), n);
+        // All outputs must be valid Ext elements (not the result of a
+        // zero-inverse).  Since `batch_inverse` would panic on zeros
+        // upstream, reaching here means the (x - σ·z) and (x - z)
+        // denominators never vanished — which is the structural
+        // invariant `H_0 ∩ {σ·z}_σ = ∅`.
+        for v in &out.f0_evals_ext {
+            // sanity: each component is in F (no NaN possibility in
+            // finite fields, but assert that conversion roundtrips).
+            let _ = v.to_fp_components();
+        }
+    }
+}

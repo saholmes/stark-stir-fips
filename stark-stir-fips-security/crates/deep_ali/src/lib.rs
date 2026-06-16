@@ -529,3 +529,4 @@ pub mod sextic_ext;
 pub mod octic_ext;
 pub mod air_workloads;
 pub mod stir_halve;
+pub mod explicit_merge;
