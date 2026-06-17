@@ -101,6 +101,7 @@ fn baseline_params() -> (FriProverParams, u64) {
             d_final: 1,
             stir: false,
             public_inputs_hash: None,
+            t_per_round: None,
         },
         0x58_AAAA,
     )
@@ -334,6 +335,7 @@ fn c1_verifier_schedule_mismatch_rejected() {
         d_final: 1,
         stir: false,
         public_inputs_hash: None,
+        t_per_round: None,
     };
 
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(|| {

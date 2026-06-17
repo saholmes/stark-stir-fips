@@ -377,6 +377,8 @@ fn bench_e2e_mf_fri(c: &mut Criterion) {
                     d_final: 1,
                     stir: USE_STIR,
                     s0: if USE_STIR { R_QUERIES } else { 0 },
+                    public_inputs_hash: None,
+                    t_per_round: None,
                 };
 
                 // ── Prove ──

@@ -662,6 +662,7 @@ mod tests {
             stir: false,
             s0: fri_r,
             public_inputs_hash: Some([0u8; 32]),
+            t_per_round: None,
         };
 
         let t_fri = Instant::now();

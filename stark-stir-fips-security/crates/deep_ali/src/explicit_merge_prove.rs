@@ -993,6 +993,7 @@ mod tests {
             d_final: 1,
             stir: false,
             public_inputs_hash: None,
+            t_per_round: None,
         }
     }
 
@@ -1520,6 +1521,7 @@ mod tests {
             d_final,
             stir: false,
             public_inputs_hash: None,
+            t_per_round: None,
         };
         let domain0 = FriDomain::new_radix2(n);
         let layer0_label = 0x5959_0001u64;

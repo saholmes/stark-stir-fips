@@ -733,6 +733,7 @@ mod tests {
             stir: false,
             s0: 8,
             public_inputs_hash: Some([0u8; 32]),
+            t_per_round: None,
         };
         let proof = deep_fri_prove::<SexticExt>(c_eval, domain, &params);
         let ok = deep_fri_verify::<SexticExt>(&params, &proof);

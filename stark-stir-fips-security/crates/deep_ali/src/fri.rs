@@ -1128,9 +1128,16 @@ pub(crate) fn bind_statement_to_transcript<E: TowerField>(
 /// absorbed followed by the 32-byte hash; when `None`, no extra bytes
 /// are absorbed at all.
 ///
-/// Backwards compatibility: with `public_inputs_hash = None`, the
-/// transcript is byte-for-byte identical to `bind_statement_to_transcript`
-/// — pre-P6.6 callers see no change.
+/// M1.2 — extended in 2026-06 to additionally absorb an optional
+/// per-round verifier-query schedule `{t_i}` (the proven Johnson-regime
+/// schedule of `DeepFriParams::t_per_round`).  When `Some(v)`, a
+/// domain-separator tag `"DEEP-FRI-T-SCHEDULE-V1"` is absorbed
+/// followed by `v.len()` as a u64 and each `t_i` as a u64.  When
+/// `None`, no extra bytes are absorbed at all.
+///
+/// Backwards compatibility: with both options `None`, the transcript
+/// is byte-for-byte identical to `bind_statement_to_transcript` —
+/// pre-P6.6 callers see no change.
 pub(crate) fn bind_statement_to_transcript_with_pi<E: TowerField>(
     tr: &mut Transcript,
     schedule: &[usize],
@@ -1139,6 +1146,7 @@ pub(crate) fn bind_statement_to_transcript_with_pi<E: TowerField>(
     coeff_commit_final: bool,
     stir: bool,
     public_inputs_hash: Option<[u8; 32]>,
+    t_per_round: Option<&[usize]>,
 ) {
     bind_statement_to_transcript::<E>(
         tr, schedule, n0, seed_z, coeff_commit_final, stir,
@@ -1146,6 +1154,13 @@ pub(crate) fn bind_statement_to_transcript_with_pi<E: TowerField>(
     if let Some(h) = public_inputs_hash {
         tr.absorb_bytes(b"DEEP-FRI-PI-HASH-V1");
         tr.absorb_bytes(&h);
+    }
+    if let Some(v) = t_per_round {
+        tr.absorb_bytes(b"DEEP-FRI-T-SCHEDULE-V1");
+        tr.absorb_field(F::from(v.len() as u64));
+        for &t in v {
+            tr.absorb_field(F::from(t as u64));
+        }
     }
 }
 
@@ -1228,6 +1243,10 @@ pub struct FriProverParams {
     /// P6.8 — mirrors DeepFriParams.public_inputs_hash.  None = pre-
     /// P6.6 byte-identical FS transcript; Some absorbs into the bind.
     pub public_inputs_hash: Option<[u8; 32]>,
+    /// M1.2 — mirrors DeepFriParams.t_per_round.  None = byte-
+    /// identical pre-M1 FS transcript; Some absorbs the secured
+    /// schedule via `DEEP-FRI-T-SCHEDULE-V1` domain separator.
+    pub t_per_round: Option<Vec<usize>>,
 }
 
 pub struct FriProverState<E: TowerField> {
@@ -1336,6 +1355,28 @@ pub struct DeepFriParams {
     /// inputs.  `None` preserves the historical pre-P6.6 behaviour
     /// for every existing caller bit-for-bit.
     pub public_inputs_hash: Option<[u8; 32]>,
+    /// M1 — optional per-round verifier query schedule {t_i}.
+    ///
+    /// When `Some(v)`, signals that the caller is engaging the proven
+    /// Johnson-regime per-round schedule of `stir_halve::DeepHalveParams`
+    /// (see `stir_halve.rs`).  `v.len()` MUST equal `schedule.len()`
+    /// and every `v[i]` MUST be > 0.  The schedule is absorbed into
+    /// the FS transcript so secured-schedule proofs cannot be
+    /// confused with uniform-`r` proofs that omit the binding.
+    ///
+    /// Semantics in the current uniform-`r` prover (`deep_fri_prove`):
+    /// the schedule is engaged as an UPPER BOUND on per-round queries
+    /// — the prover/verifier still issue `r` queries at every round,
+    /// where `r = max(v) = v[0]` (the schedule is monotone-decreasing
+    /// in STIR's Johnson regime).  This delivers the schedule's
+    /// soundness bits but does NOT shrink the proof size at deeper
+    /// rounds.  True per-round-distinct query counts require the
+    /// per-round-independent opener model of
+    /// `stir_halve::prove_halve_full_ext`; integrating that path into
+    /// the AIR-composed prover is recorded as milestone M1.B in the
+    /// paper's Implementation Status section.  `None` preserves
+    /// historical behaviour for every existing caller bit-for-bit.
+    pub t_per_round: Option<Vec<usize>>,
 }
 
 impl DeepFriParams {
@@ -1349,12 +1390,28 @@ impl DeepFriParams {
             stir: false,
             s0: r,
             public_inputs_hash: None,
+            t_per_round: None,
         }
     }
 
     /// P6.6 — fluent setter for the public-inputs commitment.
     pub fn with_public_inputs_hash(mut self, h: [u8; 32]) -> Self {
         self.public_inputs_hash = Some(h);
+        self
+    }
+
+    /// M1 — fluent setter for the per-round verifier-query schedule
+    /// (the proven Johnson-regime `{t_i}` from
+    /// `Theorem~\ref{thm:contraction}` in the paper).  Panics if `v`
+    /// is empty or contains zero entries.  Callers are responsible
+    /// for ensuring `v.len() == schedule.len()`; this is re-checked
+    /// inside `deep_fri_prove`.
+    pub fn with_t_per_round(mut self, v: Vec<usize>) -> Self {
+        assert!(!v.is_empty(), "t_per_round must be non-empty");
+        assert!(v.iter().all(|&t| t > 0), "t_per_round entries must be positive");
+        self.r = *v.iter().max().expect("non-empty checked above");
+        self.s0 = self.r;
+        self.t_per_round = Some(v);
         self
     }
 
@@ -1448,6 +1505,7 @@ pub fn derive_z_ext_for_proof<E: TowerField>(
         params.coeff_commit_final,
         params.stir,
         params.public_inputs_hash,
+        params.t_per_round.as_deref(),
     );
     tr.absorb_bytes(&proof.root_f0);
     challenge_ext::<E>(&mut tr, b"z_fp3")
@@ -1474,6 +1532,7 @@ pub fn fri_build_transcript<E: TowerField>(
         params.coeff_commit_final,
         params.stir,
         params.public_inputs_hash,
+        params.t_per_round.as_deref(),
     );
 
     let root_f0 = if use_stir && !schedule.is_empty() {
@@ -2035,6 +2094,30 @@ pub fn deep_fri_prove<E: TowerField>(
     domain0: FriDomain,
     params: &DeepFriParams,
 ) -> DeepFriProof<E> {
+    // M1.2 — propagate t_per_round into the prover params so
+    // `fri_build_transcript`'s FS binding absorbs the secured
+    // schedule alongside pi_hash + bind-statement bytes.
+    if let Some(ref v) = params.t_per_round {
+        assert_eq!(
+            v.len(),
+            params.schedule.len(),
+            "DeepFriParams.t_per_round.len() ({}) must equal schedule.len() ({})",
+            v.len(),
+            params.schedule.len()
+        );
+        assert!(
+            v.iter().all(|&t| t > 0),
+            "DeepFriParams.t_per_round entries must be positive"
+        );
+        let t_max = *v.iter().max().expect("non-empty checked above");
+        assert!(
+            params.r >= t_max,
+            "DeepFriParams.r ({}) must be >= max(t_per_round) ({}); secured-schedule \
+             engagement under the uniform-r prover requires r to envelope all per-round t_i",
+            params.r,
+            t_max
+        );
+    }
     let prover_params = FriProverParams {
         schedule: params.schedule.clone(),
         seed_z: params.seed_z,
@@ -2042,6 +2125,7 @@ pub fn deep_fri_prove<E: TowerField>(
         d_final: params.d_final,
         stir: params.stir,
         public_inputs_hash: params.public_inputs_hash,
+        t_per_round: params.t_per_round.clone(),
     };
 
     let st: FriProverState<E> = fri_build_transcript(f0, domain0, &prover_params);
@@ -2079,6 +2163,7 @@ pub fn deep_fri_prove<E: TowerField>(
             params.coeff_commit_final,
             params.stir,
             params.public_inputs_hash,
+            params.t_per_round.as_deref(),
         );
         tr.absorb_bytes(&st.root_f0);
 
@@ -2285,6 +2370,7 @@ pub fn deep_fri_verify<E: TowerField>(
         params.coeff_commit_final,
         params.stir,
         params.public_inputs_hash,
+        params.t_per_round.as_deref(),
     );
     tr.absorb_bytes(&proof.root_f0);
 
@@ -3597,6 +3683,146 @@ mod tests {
     #[test]
     fn test_no_stir_backward_compat() {
         test_no_stir_backward_compat_for::<CubeExt<GoldilocksCubeConfig>>();
+    }
+
+    /// M1 — `with_t_per_round` + `deep_fri_prove` + `deep_fri_verify`
+    /// round-trip succeeds when prover and verifier agree on the
+    /// secured schedule.
+    fn test_m1_t_per_round_round_trip_for<E: TowerField>() {
+        let mut rng = StdRng::seed_from_u64(0x4D31_BEEF);
+        let n = 256usize;
+        let schedule = vec![2, 2, 2, 2];
+        let degree = n / 32 - 1;
+
+        let dom = GeneralEvaluationDomain::<TestField>::new(n).unwrap();
+        let poly = DensePolynomial::<TestField>::rand(degree, &mut rng);
+        let evals = dom.fft(poly.coeffs());
+
+        let domain0 = FriDomain::new_radix2(n);
+        let final_size: usize = n / schedule.iter().product::<usize>();
+        let d_final = final_size / 2;
+
+        // Monotone-decreasing schedule mirroring the STIR Johnson regime
+        // (smaller than L1 production but the same shape).
+        let t_per_round: Vec<usize> = vec![6, 5, 4, 3];
+        let params = DeepFriParams::new(schedule.clone(), 4, 0xC0FFEE)
+            .with_d_final(d_final)
+            .with_t_per_round(t_per_round.clone());
+
+        // setter must populate r := max(t_i) and seed s0 := r
+        assert_eq!(params.r, 6);
+        assert_eq!(params.s0, 6);
+        assert_eq!(params.t_per_round.as_deref(), Some(&t_per_round[..]));
+
+        let proof: DeepFriProof<E> = deep_fri_prove(evals, domain0, &params);
+        assert!(
+            deep_fri_verify(&params, &proof),
+            "M1 round-trip verify failed"
+        );
+    }
+
+    #[test]
+    fn test_m1_t_per_round_round_trip() {
+        test_m1_t_per_round_round_trip_for::<CubeExt<GoldilocksCubeConfig>>();
+    }
+
+    /// M1 — tampering the verifier's `t_per_round` (so it disagrees
+    /// with the prover's transcript binding) must reject.  This is the
+    /// load-bearing test for the `DEEP-FRI-T-SCHEDULE-V1` absorption:
+    /// any prover/verifier schedule mismatch should make the
+    /// transcript-derived `z_ext` diverge and verify fail.
+    fn test_m1_t_per_round_tamper_rejects_for<E: TowerField>() {
+        let mut rng = StdRng::seed_from_u64(0x4D31_DEAD);
+        let n = 256usize;
+        let schedule = vec![2, 2, 2, 2];
+        let degree = n / 32 - 1;
+
+        let dom = GeneralEvaluationDomain::<TestField>::new(n).unwrap();
+        let poly = DensePolynomial::<TestField>::rand(degree, &mut rng);
+        let evals = dom.fft(poly.coeffs());
+
+        let domain0 = FriDomain::new_radix2(n);
+        let final_size: usize = n / schedule.iter().product::<usize>();
+        let d_final = final_size / 2;
+
+        let prover_params = DeepFriParams::new(schedule.clone(), 4, 0xC0FFEE)
+            .with_d_final(d_final)
+            .with_t_per_round(vec![6, 5, 4, 3]);
+
+        let proof: DeepFriProof<E> = deep_fri_prove(evals, domain0, &prover_params);
+
+        // Tamper: verifier uses a different schedule.  Same length,
+        // same envelope (max=6=r), but a different middle entry.
+        // The FS transcript binds the exact tuple, so any change
+        // changes the derived z_ext and breaks verify.
+        let verifier_params = DeepFriParams::new(schedule.clone(), 4, 0xC0FFEE)
+            .with_d_final(d_final)
+            .with_t_per_round(vec![6, 6, 4, 3]); // one byte differs
+
+        assert!(
+            !deep_fri_verify(&verifier_params, &proof),
+            "verifier accepted proof under tampered t_per_round schedule \
+             (FS schedule absorption is not load-bearing)"
+        );
+    }
+
+    #[test]
+    fn test_m1_t_per_round_tamper_rejects() {
+        test_m1_t_per_round_tamper_rejects_for::<CubeExt<GoldilocksCubeConfig>>();
+    }
+
+    /// M1 — a None vs Some(_) tamper must also reject: uniform-r proof
+    /// must not verify under secured-schedule params even with matching
+    /// `r` (they absorb different domain separators).
+    fn test_m1_t_per_round_presence_tamper_rejects_for<E: TowerField>() {
+        let mut rng = StdRng::seed_from_u64(0x4D31_F00D);
+        let n = 256usize;
+        let schedule = vec![2, 2, 2, 2];
+        let degree = n / 32 - 1;
+
+        let dom = GeneralEvaluationDomain::<TestField>::new(n).unwrap();
+        let poly = DensePolynomial::<TestField>::rand(degree, &mut rng);
+        let evals = dom.fft(poly.coeffs());
+
+        let domain0 = FriDomain::new_radix2(n);
+        let final_size: usize = n / schedule.iter().product::<usize>();
+        let d_final = final_size / 2;
+
+        // Uniform-r prover at r=6, no t_per_round.
+        let prover_params = DeepFriParams::new(schedule.clone(), 6, 0xC0FFEE)
+            .with_d_final(d_final);
+        let proof: DeepFriProof<E> = deep_fri_prove(evals, domain0, &prover_params);
+
+        // Verifier claims secured schedule {6,6,6,6} — same envelope,
+        // but `Some(_)` triggers the `DEEP-FRI-T-SCHEDULE-V1` absorption
+        // that the prover did NOT perform, so transcripts desync.
+        let verifier_params = DeepFriParams::new(schedule.clone(), 6, 0xC0FFEE)
+            .with_d_final(d_final)
+            .with_t_per_round(vec![6, 6, 6, 6]);
+        assert!(
+            !deep_fri_verify(&verifier_params, &proof),
+            "secured-schedule presence tamper not caught — \
+             uniform-r proof verified under Some(t_per_round) params"
+        );
+    }
+
+    #[test]
+    fn test_m1_t_per_round_presence_tamper_rejects() {
+        test_m1_t_per_round_presence_tamper_rejects_for::<CubeExt<GoldilocksCubeConfig>>();
+    }
+
+    #[test]
+    #[should_panic(expected = "t_per_round must be non-empty")]
+    fn test_m1_with_t_per_round_rejects_empty() {
+        let _ = DeepFriParams::new(vec![2, 2], 4, 0xC0FFEE)
+            .with_t_per_round(vec![]);
+    }
+
+    #[test]
+    #[should_panic(expected = "t_per_round entries must be positive")]
+    fn test_m1_with_t_per_round_rejects_zero() {
+        let _ = DeepFriParams::new(vec![2, 2], 4, 0xC0FFEE)
+            .with_t_per_round(vec![6, 0]);
     }
 
     fn test_stir_query_count_reduction_for<E: TowerField>() {

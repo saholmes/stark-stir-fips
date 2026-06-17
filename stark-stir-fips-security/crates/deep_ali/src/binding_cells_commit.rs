@@ -451,6 +451,7 @@ mod tests {
             stir: false,
             s0: 16,
             public_inputs_hash: Some(pi_hash),
+            t_per_round: None,
         }
     }
 

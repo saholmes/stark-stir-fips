@@ -23,6 +23,11 @@ use deep_ali::{
         build_rsa_stacked_layout, fill_rsa_stacked,
         rsa_stacked_constraints, RsaStackedRecord,
     },
+    secured_prove::{
+        deep_fri_prove_secured, deep_fri_verify_secured,
+        deep_fri_proof_size_bytes_secured, secured_rounds_for,
+        SECURED_FOLD_K,
+    },
     sextic_ext::SexticExt,
     trace_import::lde_trace_columns,
 };
@@ -99,16 +104,66 @@ fn main() {
         h.update(b"deep_ali/rsa2048_bench/v1");
         h.finalize().into()
     };
-    let params = DeepFriParams {
-        schedule: (0..n0.trailing_zeros() as usize).map(|_| 2).collect(),
+    // M1.B — engage the proven Johnson-regime {t_i} schedule when the
+    // bench harness sets BENCH_T_SCHEDULE.  The secured path routes to
+    // `deep_fri_prove_secured` (per-round-distinct query counts via
+    // stir_halve::prove_halve_full_ext, k=4 fold arity), which differs
+    // from the uniform-r path in both schedule shape and prover/
+    // verifier implementation.  Without BENCH_T_SCHEDULE the bench
+    // falls through to the historical uniform-r prover.
+    let t_per_round_env: Option<Vec<usize>> = std::env::var("BENCH_T_SCHEDULE")
+        .ok()
+        .and_then(|raw| {
+            let raw = raw.trim().to_string();
+            if raw.is_empty() {
+                None
+            } else {
+                Some(
+                    raw.split(',')
+                        .map(|s| {
+                            s.trim()
+                                .parse::<usize>()
+                                .expect("BENCH_T_SCHEDULE positive int")
+                        })
+                        .collect(),
+                )
+            }
+        });
+    let use_secured = t_per_round_env.is_some();
+
+    let schedule: Vec<usize> = if use_secured {
+        // Secured path: 8-round schedule at fold arity k=4 (paper's
+        // Theorem 2 layout).  Length must match BENCH_T_SCHEDULE
+        // entries; we round n0 up to the next k^M power if needed.
+        let num_rounds = secured_rounds_for(n0);
+        vec![SECURED_FOLD_K; num_rounds]
+    } else {
+        (0..n0.trailing_zeros() as usize).map(|_| 2).collect()
+    };
+
+    let mut params = DeepFriParams {
+        schedule: schedule.clone(),
         r,
         seed_z: 0xDEEFu64,
         coeff_commit_final: true,
         d_final: 1,
-        stir: use_stir,
+        stir: use_stir || use_secured,  // secured = STIR-style by construction
         s0: r,
         public_inputs_hash: Some(pi_hash),  // P6.6 — now backported
+        t_per_round: None,                  // M1.1 — set below if secured
     };
+    if let Some(v) = t_per_round_env.clone() {
+        assert_eq!(
+            v.len(),
+            schedule.len(),
+            "BENCH_T_SCHEDULE has {} entries, expected {} (one per secured fold round)",
+            v.len(),
+            schedule.len()
+        );
+        eprintln!("secured-schedule: t_per_round = {:?} (k={}, M={})",
+                  v, SECURED_FOLD_K, schedule.len());
+        params = params.with_t_per_round(v);
+    }
 
     let t0 = Instant::now();
     let lde = lde_trace_columns(&trace, n_trace, blowup).expect("LDE");
@@ -116,30 +171,42 @@ fn main() {
     let (c_eval, _info) = deep_ali_merge_rsa_stacked_streaming(
         &lde, &comb_coeffs, &layout, F::zero(), n_trace, blowup,
     );
-    let proof = deep_fri_prove::<Ext>(c_eval, domain, &params);
-    let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
-    // ── Proof size ──
-    // dust-stark uses DeepFriProof::serialize_with_mode (CanonicalSerialize
-    // not derived on stark-stir-fips's DeepFriProof yet).  Use the
-    // in-tree byte-counting helper instead — same approximation
-    // method as P5.9's bench harness.
-    let proof_bytes = deep_ali::fri::deep_fri_proof_size_bytes::<Ext>(&proof, use_stir);
+    let (proof_bytes, verify_fn): (usize, Box<dyn Fn() -> bool>) = if use_secured {
+        let proof = deep_fri_prove_secured::<Ext>(c_eval, domain, &params);
+        let bytes = deep_fri_proof_size_bytes_secured::<Ext>(&proof);
+        let p_for_verify = proof;
+        let params_for_verify = params.clone();
+        let n0_for_verify = n0;
+        (bytes, Box::new(move || {
+            deep_fri_verify_secured::<Ext>(&params_for_verify, &p_for_verify, n0_for_verify)
+        }))
+    } else {
+        let proof = deep_fri_prove::<Ext>(c_eval, domain, &params);
+        let bytes = deep_ali::fri::deep_fri_proof_size_bytes::<Ext>(&proof, use_stir);
+        let p_for_verify = proof;
+        let params_for_verify = params.clone();
+        (bytes, Box::new(move || {
+            deep_fri_verify::<Ext>(&params_for_verify, &p_for_verify)
+        }))
+    };
+    let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
     let proof_kib = proof_bytes as f64 / 1024.0;
 
     // ── Verify (3 runs for median) ──
     let mut samples: Vec<f64> = Vec::with_capacity(3);
     for _ in 0..3 {
         let t0 = Instant::now();
-        let ok = deep_fri_verify::<Ext>(&params, &proof);
+        let ok = verify_fn();
         samples.push(t0.elapsed().as_secs_f64() * 1000.0);
         assert!(ok, "RSA-2048 verify rejected — bench is broken");
     }
     samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let verify_ms = samples[1];
 
+    let mode = if use_secured { "secured" } else { "uniform" };
     println!(
-        "rsa2048_bench n_trace={n_trace} blowup={blowup} r={r} \
+        "rsa2048_bench mode={mode} n_trace={n_trace} blowup={blowup} r={r} \
          threads={rayon_threads} \
          prove_ms={prove_ms:.0} verify_ms={verify_ms:.2} proof_kib={proof_kib:.1}"
     );

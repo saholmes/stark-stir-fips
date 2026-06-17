@@ -261,6 +261,8 @@ fn bench_simple_recursion(c: &mut Criterion) {
         d_final: 1,
         stir: USE_STIR,
         s0: if USE_STIR { R_QUERIES } else { 0 },
+        public_inputs_hash: None,
+        t_per_round: None,
     };
 
     eprintln!(
@@ -356,6 +358,8 @@ fn bench_simple_recursion(c: &mut Criterion) {
         d_final: 1,
         stir: USE_STIR,
         s0: if USE_STIR { R_QUERIES } else { 0 },
+        public_inputs_hash: None,
+        t_per_round: None,
     };
 
     eprintln!(

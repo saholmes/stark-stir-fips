@@ -263,6 +263,8 @@ fn bench_e2e_mf_fri(c: &mut Criterion) {
                 d_final: 1,
                 stir: use_stir,
                 s0: r,
+                public_inputs_hash: None,
+                t_per_round: None,
             };
 
             // ---------------- Prove (using selected Ext) ----------------

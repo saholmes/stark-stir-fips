@@ -781,6 +781,15 @@ fn make_v2_schedule(n0: usize) -> Vec<usize> {
     vec![2usize; n0.trailing_zeros() as usize]
 }
 
+/// M1.C — secured-mode schedule: $k = 4$ fold arity over the
+/// $M = \lfloor (\log_2 n_0 - 2) / 2 \rfloor + 1$ rounds that the
+/// stir_halve secured prover walks the domain through.  Mirrors the
+/// shape that `secured_prove::secured_rounds_for` produces.
+fn make_v2_schedule_secured(n0: usize) -> Vec<usize> {
+    let rounds = crate::secured_prove::secured_rounds_for(n0);
+    vec![crate::secured_prove::SECURED_FOLD_K; rounds]
+}
+
 /// Fiat-Shamir-derive the constraint composition coefficients
 /// `α_1, …, α_num ∈ F` for a sub-AIR.  These are the per-constraint
 /// coefficients in `Φ(X) = Σ α_j Φ_j(X)` from the DEEP-ALI merge
@@ -837,16 +846,79 @@ pub fn v2_fri_params(n0: usize, blowup: usize, pi_hash: [u8; 32]) -> DeepFriPara
     //   blowup=16 → r =  66
     //   blowup=32 → r =  54 (matches the legacy V2_NUM_QUERIES)
     let r = crate::stark_level::num_queries_for_blowup(blowup);
-    DeepFriParams {
-        schedule: make_v2_schedule(n0),
+    // M1.C — switch the FS-absorbed schedule shape to the secured
+    // ($k = 4$, $M = \log_4 n_0$-ish) layout if a BENCH_T_SCHEDULE is
+    // present; otherwise keep the historical FRI-style $k = 2$
+    // schedule bit-identical.  The length validation inside
+    // `with_t_per_round` requires schedule.len() == t_per_round.len().
+    let secured_present = std::env::var("BENCH_T_SCHEDULE")
+        .ok()
+        .map(|raw| !raw.trim().is_empty())
+        .unwrap_or(false);
+    let schedule = if secured_present {
+        make_v2_schedule_secured(n0)
+    } else {
+        make_v2_schedule(n0)
+    };
+    let mut params = DeepFriParams {
+        schedule: schedule.clone(),
         r,
         seed_z: V2_SEED_Z,
         coeff_commit_final: true,
+        // Secured mode uses stir_halve's own commit/open path, not the
+        // implicit/explicit STIR coefficient commit, so coeff_commit_final
+        // is harmless either way.  Keep STIR-on for backward consistency.
         d_final: 1,
-        stir: !use_fri,
+        stir: !use_fri || secured_present,
         s0: r,
         public_inputs_hash: Some(pi_hash),
+        t_per_round: None,
+    };
+    if let Some(sched) = parse_bench_t_schedule_env(schedule.len()) {
+        params = params.with_t_per_round(sched);
     }
+    params
+}
+
+/// M1.3 — parse the `BENCH_T_SCHEDULE` env var into a per-round query
+/// schedule.  Format: CSV "55,46,39,34,30,27,25,23" matching the
+/// paper's Theorem 2 numerator at NIST L1.  Returns `None` if the
+/// env var is unset; panics if it's set but malformed or wrong
+/// length, so callers see the bench failure rather than silently
+/// reverting to uniform-`r`.
+fn parse_bench_t_schedule_env(expected_rounds: usize) -> Option<Vec<usize>> {
+    let raw = std::env::var("BENCH_T_SCHEDULE").ok()?;
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let v: Vec<usize> = raw
+        .split(',')
+        .map(|s| {
+            s.trim()
+                .parse::<usize>()
+                .expect("BENCH_T_SCHEDULE entries must be positive integers")
+        })
+        .collect();
+    // M1.C — ML-DSA-v2 sub-AIRs have differing $n_0$ (V17 vs INTT vs
+    // COEFF vs TRANSCRIPT), so a single env-supplied schedule cannot
+    // match every sub-AIR's required length exactly.  Truncate the
+    // user-supplied schedule to the call's `expected_rounds` (keep
+    // the highest-yield prefix, dropping the smallest-rate-shrinkage
+    // entries at the tail).  This preserves soundness because
+    // the engaged proof opens `t_i` positions at round i where round
+    // i still has the round-i Johnson bound — truncating just bounds
+    // the number of fold rounds at $M_{\text{sub}} \le M_{\text{env}}$.
+    // If the user-supplied schedule is too short, panic (we cannot
+    // safely extend without slipping below the soundness target).
+    assert!(
+        v.len() >= expected_rounds,
+        "BENCH_T_SCHEDULE has {} entries but sub-AIR requires at least {} \
+         (one per fold round); pass a longer base schedule",
+        v.len(),
+        expected_rounds
+    );
+    Some(v[..expected_rounds].to_vec())
 }
 
 fn serialize_fri(proof: &DeepFriProof<Ext>) -> Vec<u8> {
@@ -877,6 +949,48 @@ fn prove_one_sub_air(
     let params = v2_fri_params(n0, blowup, pi_hash);
     let proof = deep_fri_prove::<Ext>(c_eval, domain, &params);
     serialize_fri(&proof)
+}
+
+/// M1.C — secured-mode sub-AIR prover.  Mirrors `prove_one_sub_air`
+/// except it routes to the per-round-distinct opener
+/// `deep_fri_prove_secured` and returns the in-memory
+/// `HalveProofFullExt<Ext>` rather than a CanonicalSerialize byte
+/// bundle.  Used by the bench harness when `BENCH_T_SCHEDULE` is set.
+/// Returns `(proof, n0)` so the verifier can re-derive
+/// `secured_rounds_for(n0)` without rebuilding the trace.
+fn prove_one_sub_air_secured(
+    trace: &[Vec<F>],
+    n_trace: usize,
+    blowup: usize,
+    pi_hash: [u8; 32],
+    c_eval_fn: impl FnOnce(&[Vec<F>], usize, usize) -> Vec<F>,
+) -> (crate::stir_halve::HalveProofFullExt<Ext>, usize, DeepFriParams) {
+    let n0 = n_trace * blowup;
+    let domain = FriDomain::new_radix2(n0);
+    let lde = lde_trace_columns(trace, n_trace, blowup).expect("LDE");
+    let c_eval = c_eval_fn(&lde, n_trace, blowup);
+    drop(lde);
+    let params = v2_fri_params(n0, blowup, pi_hash);
+    assert!(
+        params.t_per_round.is_some(),
+        "prove_one_sub_air_secured requires BENCH_T_SCHEDULE to be set \
+         so v2_fri_params populates t_per_round"
+    );
+    let proof = crate::secured_prove::deep_fri_prove_secured::<Ext>(c_eval, domain, &params);
+    (proof, n0, params)
+}
+
+/// M1.C — secured-mode sub-AIR verify counterpart.
+fn verify_one_sub_air_secured(
+    proof: &crate::stir_halve::HalveProofFullExt<Ext>,
+    params: &DeepFriParams,
+    n0: usize,
+) -> Result<(), String> {
+    if crate::secured_prove::deep_fri_verify_secured::<Ext>(params, proof, n0) {
+        Ok(())
+    } else {
+        Err("secured FRI verify rejected".into())
+    }
 }
 
 /// Run a single FRI sub-verify: deserialize the proof, invoke
@@ -1883,31 +1997,151 @@ mod tests {
         #[cfg(not(feature = "parallel"))]
         eprintln!("[v2_bench] WARNING: built without `parallel` feature; single-threaded!");
 
-        let t0 = Instant::now();
-        let proof = prove_v2_real(&w, &c_tilde_bytes, blowup);
-        let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
-        eprintln!("[v2_bench] prove_ms = {prove_ms:.1}");
+        // M1.C — when BENCH_T_SCHEDULE is set, route through the
+        // secured-schedule path.  Measures the dominant FRI sub-proofs
+        // (V17 + INTT*K + COEFF + TRANSCRIPT) via
+        // prove_one_sub_air_secured + halve_proof_full_ext_size_bytes;
+        // L5 binding + cross-binding commits are NOT exercised here
+        // (they're a small fraction of bytes and orthogonal to the
+        // LDT-shrinkage claim under test).
+        let secured = std::env::var("BENCH_T_SCHEDULE")
+            .ok()
+            .map(|raw| !raw.trim().is_empty())
+            .unwrap_or(false);
 
-        let proof_bytes = proof.to_bytes();
-        let proof_kib = proof_bytes.len() as f64 / 1024.0;
-        eprintln!("[v2_bench] proof_kib = {proof_kib:.1}");
+        let (prove_ms, verify_ms, proof_kib) = if secured {
+            let pi_hash = compute_pi_hash_v2(&w, &c_tilde_bytes);
+            let traces = fill_v2_traces(&w, pi_hash);
 
-        // 3 verify runs, take median.
-        let mut samples: Vec<f64> = Vec::with_capacity(3);
-        for i in 0..3 {
+            // Sub-AIR runners — each closure mirrors the merge call
+            // that prove_v2_real_from_traces makes for that sub-AIR.
+            type ProofTuple = (
+                crate::stir_halve::HalveProofFullExt<Ext>,
+                usize,
+                DeepFriParams,
+            );
+            let mut sub_proofs: Vec<ProofTuple> = Vec::with_capacity(K + 3);
             let t0 = Instant::now();
-            verify_v2_real(&w, &c_tilde_bytes, &proof, blowup)
-                .expect("v2 verify must accept honest prover's bundle");
-            let ms = t0.elapsed().as_secs_f64() * 1000.0;
-            eprintln!("[v2_bench] verify {} ms = {ms:.2}", i + 1);
-            samples.push(ms);
-        }
-        samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        let verify_ms = samples[1];
 
+            // V17
+            sub_proofs.push(prove_one_sub_air_secured(
+                &traces.v17, traces.v17[0].len(), blowup, pi_hash,
+                |lde, n_trace, blowup| {
+                    let comb_coeffs: Vec<F> = (0..crate::ml_dsa_verify_air_v17::NUM_CONSTRAINTS)
+                        .map(|i| F::from((i + 1) as u64)).collect();
+                    crate::deep_ali_merge_ml_dsa_v17(lde, &comb_coeffs, F::zero(), n_trace, blowup).0
+                },
+            ));
+
+            // INTT × K
+            for k in 0..K {
+                sub_proofs.push(prove_one_sub_air_secured(
+                    &traces.intt[k], traces.intt[k][0].len(), blowup, pi_hash,
+                    |lde, n_trace, blowup| {
+                        let comb_coeffs: Vec<F> = (0..crate::ml_dsa_ntt_chained_air::NUM_CONSTRAINTS)
+                            .map(|i| F::from((i + 1) as u64)).collect();
+                        crate::deep_ali_merge_t7_chained_ntt(lde, &comb_coeffs, F::zero(), n_trace, blowup).0
+                    },
+                ));
+            }
+
+            // COEFF — three split sub-AIRs in v2: Decompose, UseHint, W1Encode.
+            sub_proofs.push(prove_one_sub_air_secured(
+                &traces.coeff_decompose, traces.coeff_decompose[0].len(), blowup, pi_hash,
+                |lde, n_trace, blowup| {
+                    let comb_coeffs: Vec<F> = (0..crate::ml_dsa_decompose_air::NUM_CONSTRAINTS)
+                        .map(|i| F::from((i + 1) as u64)).collect();
+                    crate::deep_ali_merge_t_decompose(lde, &comb_coeffs, F::zero(), n_trace, blowup).0
+                },
+            ));
+            sub_proofs.push(prove_one_sub_air_secured(
+                &traces.coeff_use_hint, traces.coeff_use_hint[0].len(), blowup, pi_hash,
+                |lde, n_trace, blowup| {
+                    let comb_coeffs: Vec<F> = (0..crate::ml_dsa_use_hint_air::NUM_CONSTRAINTS)
+                        .map(|i| F::from((i + 1) as u64)).collect();
+                    crate::deep_ali_merge_t_use_hint(lde, &comb_coeffs, F::zero(), n_trace, blowup).0
+                },
+            ));
+            sub_proofs.push(prove_one_sub_air_secured(
+                &traces.coeff_w1_encode, traces.coeff_w1_encode[0].len(), blowup, pi_hash,
+                |lde, n_trace, blowup| {
+                    let comb_coeffs: Vec<F> = (0..crate::ml_dsa_w1_encode_air::NUM_CONSTRAINTS)
+                        .map(|i| F::from((i + 1) as u64)).collect();
+                    crate::deep_ali_merge_t_w1_encode(lde, &comb_coeffs, F::zero(), n_trace, blowup).0
+                },
+            ));
+
+            // TRANSCRIPT — closure captures the transcript_layout.
+            let transcript_layout = ml_dsa_transcript::build_layout(&w.mu_bytes, &w.w1bytes);
+            let layout_for_closure = transcript_layout.clone();
+            let transcript_num_constraints =
+                ml_dsa_shake_absorb_multi_air::num_constraints(&layout_for_closure);
+            sub_proofs.push(prove_one_sub_air_secured(
+                &traces.transcript, traces.transcript[0].len(), blowup, pi_hash,
+                move |lde, n_trace, blowup| {
+                    let comb_coeffs: Vec<F> = (0..transcript_num_constraints)
+                        .map(|i| F::from((i + 1) as u64)).collect();
+                    crate::deep_ali_merge_t_transcript(
+                        lde, &comb_coeffs, F::zero(), n_trace, blowup, &layout_for_closure,
+                    ).0
+                },
+            ));
+
+            let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            eprintln!("[v2_bench secured] prove_ms = {prove_ms:.1}");
+
+            // Proof size: sum HalveProofFullExt sizes across sub-AIRs.
+            let total_bytes: usize = sub_proofs
+                .iter()
+                .map(|(proof, _, _)| {
+                    crate::secured_prove::deep_fri_proof_size_bytes_secured::<Ext>(proof)
+                })
+                .sum();
+            let proof_kib = total_bytes as f64 / 1024.0;
+            eprintln!("[v2_bench secured] proof_kib = {proof_kib:.1} ({} sub-AIRs)",
+                      sub_proofs.len());
+
+            // 3 verify runs, take median.
+            let mut samples: Vec<f64> = Vec::with_capacity(3);
+            for i in 0..3 {
+                let t0 = Instant::now();
+                for (proof, n0, params) in &sub_proofs {
+                    verify_one_sub_air_secured(proof, params, *n0)
+                        .expect("v2 secured verify must accept honest prover's bundle");
+                }
+                let ms = t0.elapsed().as_secs_f64() * 1000.0;
+                eprintln!("[v2_bench secured] verify {} ms = {ms:.2}", i + 1);
+                samples.push(ms);
+            }
+            samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            (prove_ms, samples[1], proof_kib)
+        } else {
+            let t0 = Instant::now();
+            let proof = prove_v2_real(&w, &c_tilde_bytes, blowup);
+            let prove_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            eprintln!("[v2_bench] prove_ms = {prove_ms:.1}");
+
+            let proof_bytes = proof.to_bytes();
+            let proof_kib = proof_bytes.len() as f64 / 1024.0;
+            eprintln!("[v2_bench] proof_kib = {proof_kib:.1}");
+
+            let mut samples: Vec<f64> = Vec::with_capacity(3);
+            for i in 0..3 {
+                let t0 = Instant::now();
+                verify_v2_real(&w, &c_tilde_bytes, &proof, blowup)
+                    .expect("v2 verify must accept honest prover's bundle");
+                let ms = t0.elapsed().as_secs_f64() * 1000.0;
+                eprintln!("[v2_bench] verify {} ms = {ms:.2}", i + 1);
+                samples.push(ms);
+            }
+            samples.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            (prove_ms, samples[1], proof_kib)
+        };
+
+        let mode = if secured { "secured" } else { "uniform" };
         // CSV-friendly stdout line for the bench harness to scrape.
         println!(
-            "v2_bench level=L{level} scheme={scheme} ext={ext_label} hash={hash_label} \
+            "v2_bench mode={mode} level=L{level} scheme={scheme} ext={ext_label} hash={hash_label} \
              r={r} blowup={blowup} threads={rayon_threads} \
              prove_ms={prove_ms:.0} verify_ms={verify_ms:.2} \
              proof_kib={proof_kib:.1}"
