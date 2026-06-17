@@ -63,11 +63,23 @@ use crate::ml_dsa_decompose;
 use sha3::{Digest, Sha3_256};
 use ark_serialize::{CanonicalSerialize, CanonicalDeserialize, Compress, Validate};
 use crate::fri::{deep_fri_prove, deep_fri_verify, DeepFriParams, DeepFriProof, FriDomain};
+#[cfg(not(feature = "tower-octic"))]
 use crate::sextic_ext::SexticExt;
+#[cfg(feature = "tower-octic")]
+use crate::octic_ext::OcticExt;
 use crate::trace_import::lde_trace_columns;
 use crate::ml_dsa_shake_absorb_multi_air::{self, MultiAbsorbLayout};
 
+// M3.1 — extension-field used by the AIR-composed prover/verifier for
+// the ML-DSA-v2 sub-proofs.  `SexticExt` (F_p^6) is the default and
+// covers L1/L3 NIST PQ targets; `OcticExt` (F_p^8) is required for L5
+// and is engaged by the `tower-octic` feature flag.  Both implement
+// `TowerField` so `deep_fri_prove::<Ext>` / `deep_fri_verify::<Ext>`
+// / `prove_halve_full_ext::<Ext>` instantiate generically.
+#[cfg(not(feature = "tower-octic"))]
 type Ext = SexticExt;
+#[cfg(feature = "tower-octic")]
+type Ext = OcticExt;
 
 // ─── V2 witness ────────────────────────────────────────────────────
 

@@ -154,62 +154,42 @@ run_cell() {
             ;;
 
         ed25519)
-            # The full per-signature Ed25519 verify STARK lived in
-            # `crates/swarm-dns/examples/crossalg_three_signature_bench.rs`
-            # (see memory `project_crossalg_bench.md`).  That harness is
-            # not in the current working tree — the only in-tree
-            # Ed25519 STARK example is the "stub-K8" demo, which
-            # proves a zero-scalar identity-R configuration (not a
-            # full per-sig proof).  We fall back to the measured
-            # reference values from the 2026-05-01 warm M4 run.
-            prove_ms="75000"        # 1.25 min/sig
-            verify_ms="NA"          # not separately reported in cross-alg log
-            proof_kib="135"         # 138224 B / 1024 ≈ 135.0 KiB
-            note="REFERENCE — full per-sig harness not-in-tree; see memory project_crossalg_bench.md (Apple M4, 2026-05-01)"
-            echo "  [skip] Ed25519 full per-sig example not in current tree; reporting reference values."
-            echo "         (See memory project_crossalg_bench.md.)"
-            : > "$log"
+            # M2 — in-tree Ed25519 verify-air v16 bench
+            # (crates/deep_ali/examples/ed25519_bench.rs).  Defaults to
+            # K=256 full scalar; BENCH_K_SCALAR overrides.
+            local features_arr="${features//,/ }"
+            cargo run --release -p deep_ali --example ed25519_bench \
+                --features "$features_arr" --no-default-features 2>&1 | tee "$log" >/dev/null \
+                || { note="bench-error"; }
+
+            local line
+            line=$(grep "^ed25519_bench " "$log" | tail -1 || true)
+            prove_ms=$(echo "$line" | grep -oE "prove_ms=[0-9.]+" | cut -d= -f2 || echo "NA")
+            verify_ms=$(echo "$line" | grep -oE "verify_ms=[0-9.]+" | cut -d= -f2 || echo "NA")
+            proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2 || echo "NA")
             ;;
 
         ecdsa)
-            # ECDSA-P256 AIR is in a sibling repo (see memory project_ecdsa_status.md).
-            # If the bench example isn't present here, emit a "not in tree" row
-            # with the measured wall-clock from prior session work.
+            # M2 — in-tree ECDSA-p256 verify-air v2 bench
+            # (crates/deep_ali/examples/ecdsa_p256_bench.rs).
+            # Defaults to K=2 stub (full K=256 trace builder OOMs on
+            # typical hosts at v2's flat-row width); BENCH_K_SCALAR
+            # overrides.  Requires the `p256-merge-helpers` feature.
             local features_arr="${features//,/ }"
-            local ecdsa_example=""
-            for candidate in \
-                "p256_full_ecdsa_stark_bench" \
-                "prove_ecdsa_record_v1" \
-                "p256_ecdsa_stark_prove" \
-                "p256_multirow_stark_prove"; do
-                if [ -f "$REPO_ROOT/crates/deep_ali/examples/${candidate}.rs" ]; then
-                    ecdsa_example="$candidate"; break
-                fi
-            done
-
-            if [ -n "$ecdsa_example" ]; then
-                cargo run --release -p deep_ali --example "$ecdsa_example" \
+            features_arr="$features_arr p256-merge-helpers"
+            if [ -f "$REPO_ROOT/crates/deep_ali/examples/ecdsa_p256_bench.rs" ]; then
+                cargo run --release -p deep_ali --example ecdsa_p256_bench \
                     --features "$features_arr" --no-default-features 2>&1 | tee "$log" >/dev/null \
                     || { note="bench-error"; }
 
-                # Try multiple output formats since each example
-                # variant prints differently.
-                local prove_s_val
-                prove_s_val=$(grep -iE "ECDSA STARK prove|prove time|STARK prove" "$log" | tail -1 \
-                    | awk '{for(i=1;i<=NF;i++) if($i ~ /s$/) {gsub(/s/,"",$i); print $i; exit}}')
-                if [ -n "$prove_s_val" ]; then
-                    prove_ms=$(awk "BEGIN {printf \"%.0f\", $prove_s_val * 1000}")
-                else
-                    prove_ms=$(grep -oE "prove_ms=[0-9.]+" "$log" | tail -1 | cut -d= -f2 || echo "NA")
+                local line
+                line=$(grep "^ecdsa_p256_bench " "$log" | tail -1 || true)
+                prove_ms=$(echo "$line" | grep -oE "prove_ms=[0-9.]+" | cut -d= -f2 || echo "NA")
+                verify_ms=$(echo "$line" | grep -oE "verify_ms=[0-9.]+" | cut -d= -f2 || echo "NA")
+                proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2 || echo "NA")
+                if [ -z "$note" ]; then
+                    note="K=2 stub in-tree; see paper §sec:impl-status M2"
                 fi
-                verify_ms=$(grep -oE "verify_ms=[0-9.]+" "$log" | tail -1 | cut -d= -f2 \
-                    || grep -iE "verify time|STARK verify" "$log" | tail -1 \
-                        | awk '{for(i=1;i<=NF;i++) if($i ~ /ms$/) {gsub(/ms/,"",$i); print $i; exit}}' \
-                    || echo "NA")
-                proof_kib=$(grep -oE "proof_kib=[0-9.]+" "$log" | tail -1 | cut -d= -f2 \
-                    || grep -iE "Proof size|proof bytes" "$log" | tail -1 \
-                        | awk '{for(i=1;i<=NF;i++) if($i ~ /KiB|KB/) {gsub(/KiB|KB/,"",$i); print $i; exit}}' \
-                    || echo "NA")
             else
                 # Reference wall-clock from memory (Apple M4, release, K=256):
                 #   prove ≈ 167.24 s (= 2.79 min/sig) via p256_ecdsa_double_multirow

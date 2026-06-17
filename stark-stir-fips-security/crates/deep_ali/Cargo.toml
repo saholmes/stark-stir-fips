@@ -33,6 +33,12 @@ mldsa-87 = []
 # p256-merge-helpers — bench/integration tests gated, lib unaffected.
 mldsa-merge-helpers = []
 
+# M3.1: switch the ML-DSA-v2 orchestration's extension field from
+# F_p^6 (SexticExt) to F_p^8 (OcticExt).  Required at NIST L5 to
+# clear the FS-ceiling at λ=256; engaged alongside `mldsa-87` and
+# `sha3-512` for an L5 build.
+tower-octic = []
+
 [dependencies]
 ark-ff = { version = "0.4.2" }
 ark-poly = "0.4.2"
