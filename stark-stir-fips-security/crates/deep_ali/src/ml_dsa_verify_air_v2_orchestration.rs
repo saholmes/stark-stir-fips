@@ -790,16 +790,48 @@ pub const V2_SEED_Z: u64 = 0xDEEF_BAAD;
 // L0-L4 superseded its (vacuous) cross-region binding role.
 
 fn make_v2_schedule(n0: usize) -> Vec<usize> {
-    vec![2usize; n0.trailing_zeros() as usize]
+    // Sweep mode: honor `BENCH_FOLD_K` env var when set; default 2
+    // preserves the historical FRI-style schedule for every caller
+    // that does not opt in to the sweep.
+    let k = read_bench_fold_k_or(2);
+    let log2_n0 = n0.trailing_zeros() as usize;
+    let log2_k = k.trailing_zeros() as usize;
+    assert!(log2_k > 0, "fold arity k must be >= 2; got {}", k);
+    assert!(
+        log2_n0 % log2_k == 0,
+        "fold arity k = {} requires log_2(n_0) divisible by log_2(k) = {}; \
+         got n_0 = 2^{} which is not k-aligned.  Pick a compatible \
+         BENCH_BLOWUP or change BENCH_FOLD_K.",
+        k,
+        log2_k,
+        log2_n0
+    );
+    let rounds = log2_n0 / log2_k;
+    vec![k; rounds]
 }
 
-/// M1.C — secured-mode schedule: $k = 4$ fold arity over the
-/// $M = \lfloor (\log_2 n_0 - 2) / 2 \rfloor + 1$ rounds that the
-/// stir_halve secured prover walks the domain through.  Mirrors the
-/// shape that `secured_prove::secured_rounds_for` produces.
+/// M1.C — secured-mode schedule: $k$ fold arity over the
+/// rounds that the stir_halve secured prover walks the domain
+/// through.  Default $k = 4$; sweep mode overrides via `BENCH_FOLD_K`.
 fn make_v2_schedule_secured(n0: usize) -> Vec<usize> {
+    let k = crate::secured_prove::secured_fold_k();
     let rounds = crate::secured_prove::secured_rounds_for(n0);
-    vec![crate::secured_prove::SECURED_FOLD_K; rounds]
+    vec![k; rounds]
+}
+
+/// Parse `BENCH_FOLD_K` env var; return `default` when unset.  Asserts
+/// power-of-two and >= 2 so the schedule arithmetic is well-formed.
+fn read_bench_fold_k_or(default: usize) -> usize {
+    let k = std::env::var("BENCH_FOLD_K")
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .unwrap_or(default);
+    assert!(
+        k >= 2 && k.is_power_of_two(),
+        "BENCH_FOLD_K must be a power of two and >= 2; got {}",
+        k
+    );
+    k
 }
 
 /// Fiat-Shamir-derive the constraint composition coefficients

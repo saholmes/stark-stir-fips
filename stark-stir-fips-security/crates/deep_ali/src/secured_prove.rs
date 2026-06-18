@@ -41,19 +41,40 @@ use transcript::Transcript;
 /// transcript-compatible proofs.
 const SECURED_DS: &[u8] = b"DEEP-FRI-SECURED-PROVE-V1";
 
-/// Fold arity engaged by the secured-schedule path.  The paper's
-/// Theorem 2 schedules at $k = 4$, $M = 8$ at NIST L1; this constant
-/// is the engaged $k$.  The schedule passed via
+/// Default fold arity engaged by the secured-schedule path.  The
+/// paper's Theorem 2 schedules at $k = 4$, $M = 8$ at NIST L1; this
+/// is the engaged $k$ unless overridden by `BENCH_FOLD_K` (sweep
+/// mode, see [`secured_fold_k`]).  The schedule passed via
 /// `DeepFriParams::t_per_round` must have length $M$ where
-/// $M = \log_k(n_0)$ —  enforced by the runtime length check.
+/// $M = \log_k(n_0)$ — enforced by the runtime length check.
 pub const SECURED_FOLD_K: usize = 4;
 
+/// Read the secured-schedule fold arity from the environment, falling
+/// back to [`SECURED_FOLD_K`] (= 4) when `BENCH_FOLD_K` is unset.
+///
+/// Used by the arity/blowup sweep (`scripts/sweep-arity-blowup.sh`)
+/// to vary $k$ across cells without recompiling.  Panics if the env
+/// value is not a power-of-two integer $\ge 2$.
+pub fn secured_fold_k() -> usize {
+    let k = std::env::var("BENCH_FOLD_K")
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .unwrap_or(SECURED_FOLD_K);
+    assert!(
+        k >= 2 && k.is_power_of_two(),
+        "BENCH_FOLD_K must be a power of two and >= 2; got {}",
+        k
+    );
+    k
+}
+
 /// Build the M-round schedule for the secured ÷2 STIR prover.  Each
-/// round folds by `deg_div = k = 4` and halves the domain
-/// (`dom_div = 2`) per the paper's schedule.
+/// round folds by `deg_div = k` (from [`secured_fold_k`]) and halves
+/// the domain (`dom_div = 2`) per the paper's schedule.
 fn secured_round_schedule(num_rounds: usize) -> Vec<RoundSchedule> {
+    let k = secured_fold_k();
     (0..num_rounds)
-        .map(|_| RoundSchedule { deg_div: SECURED_FOLD_K, dom_div: 2 })
+        .map(|_| RoundSchedule { deg_div: k, dom_div: 2 })
         .collect()
 }
 
@@ -61,13 +82,14 @@ fn secured_round_schedule(num_rounds: usize) -> Vec<RoundSchedule> {
 /// engaged fold arity.  The caller's `params.t_per_round.len()` must
 /// equal this value or the prover panics.
 pub fn secured_rounds_for(n0: usize) -> usize {
+    let k = secured_fold_k();
     assert!(n0.is_power_of_two(), "secured prover requires power-of-two |H_0|");
     let log_n0 = n0.trailing_zeros() as usize;
-    let log_k = SECURED_FOLD_K.trailing_zeros() as usize;
+    let log_k = k.trailing_zeros() as usize;
     assert!(
         log_n0 >= log_k,
         "secured prover requires |H_0| >= k = {}",
-        SECURED_FOLD_K
+        k
     );
     // We stop folding when the round size would drop below k.
     // M = log_k(n_0 / k) = (log2(n_0) - log2(k)) / log2(k)
@@ -173,7 +195,7 @@ pub fn deep_fri_prove_secured<E: TowerField>(
         "DeepFriParams.t_per_round.len()={} but secured prover at k={} on |H_0|={} \
          requires len={} rounds",
         t_per_round.len(),
-        SECURED_FOLD_K,
+        secured_fold_k(),
         n0,
         num_rounds
     );

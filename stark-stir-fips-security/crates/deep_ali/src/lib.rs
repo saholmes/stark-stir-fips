@@ -578,6 +578,7 @@ pub mod octic_ext;
 pub mod air_workloads;
 pub mod stir_halve;
 pub mod secured_prove;
+pub mod sweep_calibration;
 pub mod explicit_merge;
 pub mod explicit_merge_layer0;
 pub mod explicit_merge_ood_check;

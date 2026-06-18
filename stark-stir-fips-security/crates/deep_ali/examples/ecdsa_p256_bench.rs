@@ -148,11 +148,29 @@ fn main() {
             }
         });
     let use_secured = t_per_round_env.is_some();
+    let bench_fold_k: usize = std::env::var("BENCH_FOLD_K")
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .unwrap_or(2);
+    assert!(
+        bench_fold_k >= 2 && bench_fold_k.is_power_of_two(),
+        "BENCH_FOLD_K must be a power of two and >= 2; got {}",
+        bench_fold_k
+    );
     let schedule: Vec<usize> = if use_secured {
         let num_rounds = secured_rounds_for(n0);
-        vec![SECURED_FOLD_K; num_rounds]
+        vec![deep_ali::secured_prove::secured_fold_k(); num_rounds]
     } else {
-        (0..n0.trailing_zeros() as usize).map(|_| 2).collect()
+        let log2_n0 = n0.trailing_zeros() as usize;
+        let log2_k = bench_fold_k.trailing_zeros() as usize;
+        assert!(
+            log2_n0 % log2_k == 0,
+            "uniform-mode schedule: log_2(n_0) = {} not divisible by \
+             log_2(BENCH_FOLD_K) = {}; pick a compatible BENCH_BLOWUP \
+             so n_0 is a power of {}",
+            log2_n0, log2_k, bench_fold_k
+        );
+        (0..log2_n0 / log2_k).map(|_| bench_fold_k).collect()
     };
     let mut params = DeepFriParams {
         schedule: schedule.clone(),
