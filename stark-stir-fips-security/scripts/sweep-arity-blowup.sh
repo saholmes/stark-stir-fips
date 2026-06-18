@@ -151,12 +151,15 @@ wall_check () {
     echo "ok"
 }
 
-# FRI uniform-r: r = ⌈λ / log₂(b)⌉
+# FRI uniform-r at the Johnson-regime floor (matches paper's
+# deployed baseline of r=55 at L1 for both FRI and STIR, per
+# Tables 5/6).  Identical formula to calibrate_stir_uniform; kept
+# separate for documentation.  Previous capacity-regime calibration
+# (r = ⌈λ/log_2(b)⌉) was reviewer-flagged as inconsistent with
+# the paper deployment and replaced this revision.
 calibrate_fri () {
     local lambda=$1 blowup=$2
-    local log_b; log_b=$(log2 "$blowup")
-    [ "$log_b" -gt 0 ] || { echo "blowup must be > 1" >&2; exit 1; }
-    ceil_div "$lambda" "$log_b"
+    calibrate_stir_uniform "$lambda" "$blowup"
 }
 
 # STIR uniform-r: r = ⌈2λ / log₂(b)⌉

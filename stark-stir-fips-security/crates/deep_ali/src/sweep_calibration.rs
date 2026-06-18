@@ -38,22 +38,29 @@
 //! the unit tests at the foot of this module against the paper's
 //! published values at the headline parameters.
 
-/// FRI uniform-$r$ calibration.
+/// FRI uniform-$r$ calibration at the Johnson-regime floor.
 ///
 /// Returns the minimum $r$ that clears $\lambda$ bits of FRI
-/// (capacity-regime proxy) at rate $\rho_0 = 1/b$.  Per-query yield
-/// is $\log_2 b$ bits; $r = \lceil \lambda / \log_2 b \rceil$.
+/// unconditional Johnson-regime soundness at rate $\rho_0 = 1/b$,
+/// matching the paper's deployed FRI baseline (Tables 5/6 use
+/// $r = 55$ at L1 for both FRI and STIR).  Per-query yield is
+/// $\tfrac{1}{2} \log_2 b$ bits at round 0;
+/// $r = \lceil 2\lambda / \log_2 b \rceil$.
+///
+/// Identical formula to [`calibrate_stir_uniform`] — both LDTs sit
+/// at the same Johnson floor when calibrated at the unconditional
+/// soundness target the rest of this paper uses.  The two functions
+/// are kept separate for documentation: the FRI capacity bound
+/// ($r = \lceil \lambda / \log_2 b \rceil$) is conjectural at large
+/// $r$ and is NOT used here; the original sweep results published
+/// in [Appendix~A, an earlier revision] reflected that asymmetric
+/// calibration choice and were corrected in this revision per
+/// reviewer feedback.
 ///
 /// Panics if $b$ is not a power of two $\ge 4$.
 pub fn calibrate_fri_queries(lambda: usize, blowup: usize) -> usize {
-    assert!(
-        blowup >= 4 && blowup.is_power_of_two(),
-        "blowup must be a power of two and >= 4; got {}",
-        blowup
-    );
-    let bits_per_query = blowup.trailing_zeros() as usize; // log_2(b)
-    assert!(bits_per_query > 0, "blowup must be > 1");
-    (lambda + bits_per_query - 1) / bits_per_query
+    // Matches calibrate_stir_uniform — Johnson-floor calibration.
+    calibrate_stir_uniform(lambda, blowup)
 }
 
 /// STIR uniform-$r$ calibration at the Johnson-regime round-0 floor.
@@ -271,13 +278,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn fri_paper_headline_calibration() {
-        // FRI at blowup-32 needs r ≥ 128/5 ≈ 25.6 → 26 queries at λ=128
-        // (capacity-regime proxy; the paper's actual r=54 reflects the
-        // tighter ÷2 schedule and per-round margins).
-        assert_eq!(calibrate_fri_queries(128, 32), 26);
-        assert_eq!(calibrate_fri_queries(128, 16), 32);
-        assert_eq!(calibrate_fri_queries(128, 4), 64);
+    fn fri_johnson_matched_with_stir() {
+        // FRI uniform-r now uses the same Johnson floor as STIR
+        // (matches the paper's deployed FRI baseline, r=55 at L1).
+        // Per-query yield ½·log_2(b); r = ⌈2λ/log_2(b)⌉.
+        assert_eq!(calibrate_fri_queries(128, 32), 52);
+        assert_eq!(calibrate_fri_queries(128, 16), 64);
+        assert_eq!(calibrate_fri_queries(128, 4),  128);
+        // Equality with STIR uniform — by construction.
+        for b in [4_usize, 8, 16, 32, 64] {
+            for lambda in [128_usize, 192, 256] {
+                assert_eq!(calibrate_fri_queries(lambda, b),
+                           calibrate_stir_uniform(lambda, b));
+            }
+        }
     }
 
     #[test]
