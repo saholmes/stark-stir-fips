@@ -1,1 +1,5 @@
 .DS_Store
+
+# Per-cell sweep logs are reproducible from the CSV row + env;
+# checked-in artifact is scripts/results/sweep.csv only.
+scripts/results/*.log
