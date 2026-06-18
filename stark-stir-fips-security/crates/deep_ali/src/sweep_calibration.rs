@@ -151,6 +151,105 @@ pub fn calibrate_stir_secured(
     t
 }
 
+/// NIST security target $\lambda$ at each level (bits).
+pub const NIST_L1: usize = 128;
+pub const NIST_L3: usize = 192;
+pub const NIST_L5: usize = 256;
+
+/// $\kappa_{\mathrm{bind}}$ bit-security as a function of hash output
+/// size $n$ (bits), quantum query budget $q$, and the number of FRI/STIR
+/// rounds $M$.
+///
+/// Per the paper's eq. (`bind-bits`):
+/// $$\kappa_{\mathrm{bind}}(n, q) = n - 3 \log_2 q
+///     - \lceil \log_2((M+2)\,c_b) \rceil
+///     \approx n - 3 \log_2 q - 3.3,$$
+/// where $c_b = O(1)$ is the Zhandry compressed-oracle constant
+/// (absorbed in the paper's "$\approx 3.3$" approximation that
+/// effectively treats $c_b \approx 1$).  We compute the strict
+/// $\lceil \log_2(M+2) \rceil$ penalty (4 bits at $M=8$, matching the
+/// paper's Table 3 wall values exactly).
+///
+/// Returns $\kappa_{\mathrm{bind}}$ as a signed integer (can go
+/// negative when the wall is breached); the caller compares against
+/// $\lambda$ for the wall-check.
+pub fn kappa_bind(n_hash_bits: usize, q_log: usize, m_rounds: usize) -> i64 {
+    // Paper's "≈3.3" = log_2(M+2) at M=8 → 3.32.  We use ceil(log_2(M+2))
+    // for the bit-budget calculation; this reproduces Table 3 walls
+    // exactly at the deployed M ∈ {8} and degrades gracefully at
+    // larger M (more conservative).
+    let m_plus_2_log = (((m_rounds + 2) as f64).log2()).ceil() as i64;
+    (n_hash_bits as i64) - 3 * (q_log as i64) - m_plus_2_log
+}
+
+/// $\kappa_{\mathrm{FS}}$ bit-security as a function of extension
+/// degree $e$, quantum query budget $q$, and DFMS round count $K$.
+///
+/// Per the paper's eq. (`fs-bits`):
+/// $$\kappa_{\mathrm{FS}}(e, q) = 64 e - 2 \log_2 K - 2 \log_2 q.$$
+///
+/// Returns $\kappa_{\mathrm{FS}}$; compare against $\lambda$ for the
+/// wall-check.
+pub fn kappa_fs(extension_degree: usize, q_log: usize, k_rounds: usize) -> i64 {
+    let k_log = ((k_rounds as f64).log2().ceil() as i64).max(1);
+    64 * (extension_degree as i64) - 2 * (k_log) - 2 * (q_log as i64)
+}
+
+/// Joint $\kappa_{\mathrm{sys}} = \min(\kappa_{\mathrm{IT}},
+/// \kappa_{\mathrm{bind}}, \kappa_{\mathrm{FS}})$ — the system-level
+/// bit-security.  Callers supply the IT bits from their LDT choice.
+pub fn kappa_sys(
+    kappa_it_bits: i64,
+    n_hash_bits: usize,
+    extension_degree: usize,
+    q_log: usize,
+    m_rounds: usize,
+) -> i64 {
+    let k_fs = kappa_fs(extension_degree, q_log, m_rounds + 2);
+    let k_bind = kappa_bind(n_hash_bits, q_log, m_rounds);
+    kappa_it_bits.min(k_bind).min(k_fs)
+}
+
+/// Wall-breach check: at $(\lambda, n_{\mathrm{hash}}, e, q, M)$, can
+/// any IT-side budget save the configuration?  Returns `None` when
+/// the cell is sustainable (the caller should calibrate $r$ via
+/// `calibrate_*_queries`), or `Some(reason)` describing which ceiling
+/// is breached and by how much.
+pub fn wall_check(
+    lambda: usize,
+    n_hash_bits: usize,
+    extension_degree: usize,
+    q_log: usize,
+    m_rounds: usize,
+) -> Option<String> {
+    let k_bind = kappa_bind(n_hash_bits, q_log, m_rounds);
+    if k_bind < lambda as i64 {
+        return Some(format!(
+            "kappa_bind={} < lambda={} at q=2^{} hash={}b M={} (binding wall breached)",
+            k_bind, lambda, q_log, n_hash_bits, m_rounds
+        ));
+    }
+    let k_fs = kappa_fs(extension_degree, q_log, m_rounds + 2);
+    if k_fs < lambda as i64 {
+        return Some(format!(
+            "kappa_fs={} < lambda={} at q=2^{} e={} K={} (FS ceiling breached)",
+            k_fs, lambda, q_log, extension_degree, m_rounds + 2
+        ));
+    }
+    None
+}
+
+/// Map a NIST level (1, 3, or 5) to (lambda, hash_output_bits,
+/// extension_degree) per the paper's deployed parameters.
+pub fn nist_level_params(level: u8) -> Option<(usize, usize, usize)> {
+    match level {
+        1 => Some((NIST_L1, 256, 6)),
+        3 => Some((NIST_L3, 384, 6)),
+        5 => Some((NIST_L5, 512, 8)),
+        _ => None,
+    }
+}
+
 /// Number of STIR fold rounds for a given (n_0, k) under the
 /// uniform-arity schedule.  Returns `Some(M)` when `n_0` is a clean
 /// power of `k`, else `None` (the caller must either use mixed-arity
@@ -255,5 +354,81 @@ mod tests {
     #[should_panic(expected = "fold arity k must be a power of two")]
     fn rejects_non_power_of_two_k() {
         let _ = calibrate_stir_secured(128, 3, 8, 32);
+    }
+
+    #[test]
+    fn kappa_bind_paper_wall_values() {
+        // Paper Table 3 (M=8, K=10 for the cb_log_ceil=4):
+        //   L1, SHA3-256: q_max = 2^41   → kappa_bind(256, 41, 8) ≈ 128
+        //   L3, SHA3-384: q_max = 2^62   → kappa_bind(384, 62, 8) ≈ 192
+        //   L5, SHA3-512: q_max = 2^84   → kappa_bind(512, 84, 8) ≈ 256
+        // We allow ±2 for the ceiling rounding convention.
+        assert!((kappa_bind(256, 41, 8) - 128).abs() <= 2,
+                "L1 wall: {}", kappa_bind(256, 41, 8));
+        assert!((kappa_bind(384, 62, 8) - 192).abs() <= 2,
+                "L3 wall: {}", kappa_bind(384, 62, 8));
+        assert!((kappa_bind(512, 84, 8) - 256).abs() <= 2,
+                "L5 wall: {}", kappa_bind(512, 84, 8));
+    }
+
+    #[test]
+    fn kappa_fs_paper_ceiling() {
+        // Paper §5: e=6 gives 64·6=384 raw bits; at K=10 (M=8) and
+        // q=2^40 the FS ceiling = 384 - 2·log_2(10) - 2·40 ≈ 384 - 7 - 80 = 297.
+        let k_fs = kappa_fs(6, 40, 10);
+        assert!((k_fs - 297).abs() <= 2, "kappa_fs(e=6, q=40, K=10) = {}", k_fs);
+
+        // e=8 at L5 with q=2^65: 512 - 7 - 130 = 375.
+        let k_fs_l5 = kappa_fs(8, 65, 10);
+        assert!((k_fs_l5 - 375).abs() <= 2, "kappa_fs(e=8, q=65, K=10) = {}", k_fs_l5);
+    }
+
+    #[test]
+    fn wall_check_at_paper_q_budgets() {
+        // Per paper Table 3 wall values:
+        //   L1, SHA3-256: q_max = 2^41 (kappa_bind(256,41,8) = 129 ≥ 128 ✓)
+        //   L3, SHA3-384: q_max = 2^62 (kappa_bind(384,62,8) = 194 ≥ 192 ✓)
+        //   L5, SHA3-512: q_max = 2^84 (kappa_bind(512,84,8) = 256 ≥ 256 ✓)
+        // The three test q values {2^40, 2^65, 2^90} sit either side
+        // of those walls.
+
+        // L1 q=2^40: 256 - 120 - 4 = 132 ≥ 128 → pass
+        assert!(wall_check(128, 256, 6, 40, 8).is_none(), "L1 q=40 should pass");
+        // L1 q=2^65: 256 - 195 - 4 = 57 < 128 → breach
+        assert!(wall_check(128, 256, 6, 65, 8).is_some(), "L1 q=65 must breach");
+        assert!(wall_check(128, 256, 6, 90, 8).is_some(), "L1 q=90 must breach");
+
+        // L3 q=2^40: 384 - 120 - 4 = 260 ≥ 192 → pass
+        assert!(wall_check(192, 384, 6, 40, 8).is_none(), "L3 q=40 should pass");
+        // L3 q=2^65: 384 - 195 - 4 = 185 < 192 → breach (just past wall at 2^62)
+        assert!(wall_check(192, 384, 6, 65, 8).is_some(), "L3 q=65 must breach");
+        assert!(wall_check(192, 384, 6, 90, 8).is_some(), "L3 q=90 must breach");
+
+        // L5 q=2^40: 512 - 120 - 4 = 388 ≥ 256 → pass
+        assert!(wall_check(256, 512, 8, 40, 8).is_none(), "L5 q=40 should pass");
+        // L5 q=2^65: 512 - 195 - 4 = 313 ≥ 256 → pass
+        assert!(wall_check(256, 512, 8, 65, 8).is_none(), "L5 q=65 should pass");
+        // L5 q=2^90: 512 - 270 - 4 = 238 < 256 → breach (wall at 2^84)
+        assert!(wall_check(256, 512, 8, 90, 8).is_some(), "L5 q=90 must breach");
+    }
+
+    #[test]
+    fn nist_level_param_table() {
+        assert_eq!(nist_level_params(1), Some((128, 256, 6)));
+        assert_eq!(nist_level_params(3), Some((192, 384, 6)));
+        assert_eq!(nist_level_params(5), Some((256, 512, 8)));
+        assert_eq!(nist_level_params(2), None);
+    }
+
+    #[test]
+    fn kappa_sys_min_of_three() {
+        // At L1 / q=2^40 / r=54 (paper deployment): IT bits = 54·2.5 = 135;
+        // kappa_bind = 256 - 120 - 4 = 132,  kappa_FS = 64·6 - 7 - 80 = 297;
+        // min = 132.  Paper rounds this to "≥128" since lambda = 128.
+        let it_bits = 135;
+        let kappa = kappa_sys(it_bits, 256, 6, 40, 8);
+        // kappa_sys = min(135, 132, 297) = 132 → ≥ 128 (clears L1).
+        assert!(kappa >= 128, "L1 deployed kappa_sys = {} (should clear 128)", kappa);
+        assert!(kappa <= 135, "min of three should not exceed IT-bits");
     }
 }
