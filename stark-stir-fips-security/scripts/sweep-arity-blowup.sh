@@ -207,10 +207,12 @@ already_run () {
 skip_cell () {
     local air=$1 ldt=$2 k=$3 b=$4
     case "$air" in
-        # Ed25519 K=256: huge trace; skip k≥8 at any blowup.
+        # Ed25519 K=256: huge trace; skip k≥4 (Phase 2 confirmed k=2
+        # is optimal at large AIRs; k≥4 inflates proof size per the
+        # RSA-2048 sweep) and skip b≤8 (under-secured at small blowup).
         ed25519)
-            [ "$k" -ge 8 ] && return 0
-            [ "$b" -le 8 ] && return 0   # under-secured at small blowup
+            [ "$k" -ge 4 ] && return 0
+            [ "$b" -le 8 ] && return 0
             ;;
         # ECDSA-p256 K=2 stub: tiny trace; skip k=16 + b=64
         ecdsa)
@@ -421,6 +423,15 @@ for phase in "${PHASES[@]}"; do
         fi
         echo "──── L${nist} (λ=${lambda}) ────"
         for cell_tuple in $cells; do
+            # Optional tuple filter — useful for Phase 3 overnight runs
+            # that want to skip the hash-axis cells (q=2^65, q=2^90)
+            # and only measure the baseline q=2^40 deployable points.
+            # Set SWEEP_TUPLE_FILTER to a colon-separated grep pattern.
+            if [ -n "${SWEEP_TUPLE_FILTER:-}" ]; then
+                if ! echo "$cell_tuple" | grep -qE "$SWEEP_TUPLE_FILTER"; then
+                    continue
+                fi
+            fi
             IFS=':' read -r hash mldsa tower q_log <<< "$cell_tuple"
             n_hash=$(hash_bits_for "$hash")
             read -r ext_e extra <<< "$(ext_for_tower "$tower")"
