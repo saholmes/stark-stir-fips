@@ -54,7 +54,7 @@ use crate::explicit_merge_prove::{
 };
 use crate::explicit_merge_layer0::Layer0Opening;
 use crate::fri::{
-    absorb_ext, bind_statement_to_transcript, challenge_ext, ds, ext_evals_to_coeffs,
+    absorb_ext, bind_statement_to_transcript_with_pi, challenge_ext, ds, ext_evals_to_coeffs,
     ext_leaf_fields, index_from_seed, index_seed, merkle_depth, pick_arity_for_layer,
     safe_field_challenge, transcript_challenge_hash, FriDomain, FriProverParams,
 };
@@ -135,13 +135,15 @@ where
 {
     // (i) Open transcript and bind statement.
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &params.schedule,
         n0,
         params.seed_z,
         params.coeff_commit_final,
         params.stir,
+        params.public_inputs_hash,
+        params.t_per_round.as_deref(),
     );
 
     // (ii) Absorb the (claimed) layer-0 root from the proof.
@@ -252,13 +254,15 @@ where
     // ─── FS replay through layer-0 phase ───────────────────────────
 
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &fri_params.schedule,
         proof.n0,
         fri_params.seed_z,
         fri_params.coeff_commit_final,
         fri_params.stir,
+        fri_params.public_inputs_hash,
+        fri_params.t_per_round.as_deref(),
     );
     tr.absorb_bytes(&proof.root_f0);
 
@@ -558,6 +562,8 @@ mod tests {
             coeff_commit_final: false,
             stir: false,
             layer0_tree_label: 0x54_AAAA,
+            public_inputs_hash: None,
+            t_per_round: None,
         }
     }
 

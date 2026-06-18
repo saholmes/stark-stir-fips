@@ -4,6 +4,27 @@
 #![allow(non_snake_case)]
 #![allow(unused_variables)]
 #![allow(unused_macros)]
+
+// Defence-in-depth: `tower-octic` switches `ml_dsa_verify_air_v2_orchestration::Ext`
+// to OcticExt (F_p^8), the deployed-correct field at NIST L5; the rest of the
+// orchestration's binding stack (`binding_cells_commit`, `sub_air_with_trace`,
+// `permutation_argument`) switches its `Ext` alias on `sha3-512`.  The two
+// must agree at L5 or the orchestration's serializer/deserializer disagree at
+// build time with an inscrutable type error.  Surface a friendly compile-time
+// error instead.
+#[cfg(all(feature = "tower-octic", not(feature = "sha3-512")))]
+compile_error!(
+    "feature `tower-octic` (F_p^8 orchestration Ext alias at NIST L5) requires \
+     feature `sha3-512` (binding-stack Ext alias at NIST L5).  Add `sha3-512` \
+     to the build features, or remove `tower-octic` for an L1/L3 build."
+);
+#[cfg(all(feature = "sha3-512", feature = "mldsa-87", not(feature = "tower-octic")))]
+compile_error!(
+    "feature combination `sha3-512 + mldsa-87` (NIST L5 ML-DSA-87) requires \
+     feature `tower-octic` (orchestration Ext = OcticExt / F_p^8).  Add \
+     `tower-octic` to the build features."
+);
+
 use ark_ff::{Field, Zero};
 use ark_goldilocks::Goldilocks as F;
 

@@ -67,7 +67,7 @@ use crate::explicit_merge::{
 use crate::explicit_merge_air::{build_ood_claims_from_witness, AirOodEvaluator};
 use crate::explicit_merge_layer0::{Layer0Commit, Layer0Opening};
 use crate::fri::{
-    absorb_ext, bind_statement_to_transcript, challenge_ext, ds, ext_evals_to_coeffs,
+    absorb_ext, bind_statement_to_transcript_with_pi, challenge_ext, ds, ext_evals_to_coeffs,
     fri_prove_layer_openings_only, fri_rounds_from_f0_ext, safe_field_challenge,
     transcript_challenge_hash, FriDomain, FriLayerProofs, FriProverParams,
     FriProverState, LayerOpenPayload, LayerQueryRef, StirProximityPayload,
@@ -104,6 +104,23 @@ pub struct Layer0PhaseParams {
     /// Domain-separation tag for the layer-0 Merkle tree.  See
     /// `Layer0Commit::from_witness` doc.
     pub layer0_tree_label: u64,
+
+    /// Defence-in-depth (2026-06-18): mirrors
+    /// `DeepFriParams::public_inputs_hash` / `FriProverParams::public_inputs_hash`
+    /// so the explicit-merge layer-0 bind absorbs the same PI-hash
+    /// commitment as the classic prover when an external caller
+    /// supplies one.  `None` (the default) keeps the explicit-merge
+    /// transcript byte-identical to its prior shape.
+    pub public_inputs_hash: Option<[u8; 32]>,
+
+    /// Defence-in-depth (2026-06-18): mirrors
+    /// `DeepFriParams::t_per_round`.  `None` (the default) keeps the
+    /// explicit-merge transcript byte-identical.  Currently no
+    /// explicit-merge caller engages the secured `{t_i}` schedule;
+    /// the field exists so a future wiring (e.g. ECDSA / Ed25519
+    /// verify benches through the explicit form) cannot silently
+    /// skip FS-binding the schedule.
+    pub t_per_round: Option<Vec<usize>>,
 }
 
 /// What `prove_layer0_phase` returns — all the data the next phase
@@ -173,13 +190,15 @@ where
     // (ii) Open transcript, bind statement, absorb the layer-0 root.
     //      Same hash label as fri.rs (b"FRI/FS").
     let mut tr = Transcript::new_matching_hash(b"FRI/FS");
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &params.schedule,
         h0_domain.len(),
         params.seed_z,
         params.coeff_commit_final,
         params.stir,
+        params.public_inputs_hash,
+        params.t_per_round.as_deref(),
     );
     tr.absorb_bytes(&layer0_commit.root);
 
@@ -352,6 +371,8 @@ where
         coeff_commit_final: fri_params.coeff_commit_final,
         stir: fri_params.stir,
         layer0_tree_label,
+        public_inputs_hash: fri_params.public_inputs_hash,
+        t_per_round: fri_params.t_per_round.clone(),
     };
 
     let phase: Layer0PhaseOutput<E> = prove_layer0_phase::<E, A>(
@@ -470,13 +491,15 @@ pub(crate) fn derive_query_seed_explicit<E: TowerField>(
 
     let mut tr = transcript::Transcript::new_matching_hash(b"FRI/FS");
 
-    bind_statement_to_transcript::<E>(
+    bind_statement_to_transcript_with_pi::<E>(
         &mut tr,
         &fri_params.schedule,
         domain0.size,
         fri_params.seed_z,
         fri_params.coeff_commit_final,
         fri_params.stir,
+        fri_params.public_inputs_hash,
+        fri_params.t_per_round.as_deref(),
     );
     tr.absorb_bytes(&state.layer0_commit.root);
     let _ = challenge_ext::<E>(&mut tr, b"z_fp3");
@@ -763,6 +786,8 @@ mod tests {
             coeff_commit_final: false,
             stir: false,
             layer0_tree_label: 0x52_0001,
+            public_inputs_hash: None,
+            t_per_round: None,
         }
     }
 
@@ -1004,6 +1029,8 @@ mod tests {
             coeff_commit_final: false,
             stir: false,
             layer0_tree_label: 0x55_AAAA,
+            public_inputs_hash: None,
+            t_per_round: None,
         }
     }
 

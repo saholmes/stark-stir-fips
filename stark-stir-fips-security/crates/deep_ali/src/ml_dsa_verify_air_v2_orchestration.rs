@@ -886,7 +886,7 @@ pub fn v2_fri_params(n0: usize, blowup: usize, pi_hash: [u8; 32]) -> DeepFriPara
         public_inputs_hash: Some(pi_hash),
         t_per_round: None,
     };
-    if let Some(sched) = parse_bench_t_schedule_env(schedule.len()) {
+    if let Some(sched) = parse_bench_t_schedule_env(schedule.len(), blowup) {
         params = params.with_t_per_round(sched);
     }
     params
@@ -898,7 +898,20 @@ pub fn v2_fri_params(n0: usize, blowup: usize, pi_hash: [u8; 32]) -> DeepFriPara
 /// env var is unset; panics if it's set but malformed or wrong
 /// length, so callers see the bench failure rather than silently
 /// reverting to uniform-`r`.
-fn parse_bench_t_schedule_env(expected_rounds: usize) -> Option<Vec<usize>> {
+///
+/// **M1.C+ defence-in-depth (2026-06-18):** also verifies that
+/// `t_0` clears NIST L1 (128 bits) at the active `blowup`, panicking
+/// with a clear message rather than silently degrading soundness.
+/// Johnson-regime per-query yield at round 0 is
+/// `½·log₂(1/ρ_0) = ½·log₂(blowup)` bits; the schedule's IT-soundness
+/// floor at round 0 is `t_0 · ½·log₂(blowup)` and must clear
+/// `λ = 128`.  A user passing the paper's L1 schedule
+/// (calibrated for blowup-32) at blowup-4 would otherwise silently
+/// deliver `55 · 1 = 55` bits, well below L1.
+fn parse_bench_t_schedule_env(
+    expected_rounds: usize,
+    blowup: usize,
+) -> Option<Vec<usize>> {
     let raw = std::env::var("BENCH_T_SCHEDULE").ok()?;
     let raw = raw.trim();
     if raw.is_empty() {
@@ -930,6 +943,39 @@ fn parse_bench_t_schedule_env(expected_rounds: usize) -> Option<Vec<usize>> {
         v.len(),
         expected_rounds
     );
+
+    // M1.C+ blowup-calibration check: the per-query Johnson yield at
+    // round 0 depends on `ρ_0 = 1/blowup`.  Pin the active blowup to
+    // the schedule's first entry so a paper-L1-schedule run at
+    // blowup-4 panics instead of silently degrading from 128 to 55
+    // bits of IT soundness.
+    assert!(
+        blowup >= 4 && blowup.is_power_of_two(),
+        "blowup must be a power of two and ≥ 4; got {}",
+        blowup
+    );
+    let log2_blowup = blowup.trailing_zeros() as usize; // = log_2(blowup)
+    let bits_per_query_2x = log2_blowup; // 2 × (½·log₂(blowup))
+    let t0 = *v.first().expect("BENCH_T_SCHEDULE must be non-empty");
+    let it_bits_round0_2x = t0.checked_mul(bits_per_query_2x).unwrap_or(usize::MAX);
+    // Compare 2 × IT bits against 2 × NIST L1 target (= 256) to avoid
+    // half-bit arithmetic.  256 corresponds to λ = 128.
+    assert!(
+        it_bits_round0_2x >= 256,
+        "BENCH_T_SCHEDULE round-0 IT-soundness floor below NIST L1: \
+         t_0 = {} at blowup = {} yields {} bits / 2 (= {} bits) of \
+         round-0 Johnson IT soundness, below the λ = 128 target.  \
+         The schedule was likely calibrated for a higher blowup (the \
+         paper's L1 schedule {{55,46,...,23}} assumes blowup-32, \
+         ρ_0 = 1/32, yielding 55·2.5 = 137.5 bits).  Re-calibrate \
+         BENCH_T_SCHEDULE for blowup = {} or raise BENCH_BLOWUP.",
+        t0,
+        blowup,
+        it_bits_round0_2x,
+        it_bits_round0_2x / 2,
+        blowup
+    );
+
     Some(v[..expected_rounds].to_vec())
 }
 
