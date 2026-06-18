@@ -56,15 +56,59 @@ log2 () { local n=$1 r=0; while [ $n -gt 1 ]; do n=$((n >> 1)); r=$((r + 1)); do
 # ceil(num/denom) for positive integers
 ceil_div () { echo $(( ($1 + $2 - 1) / $2 )); }
 
-# ── NIST-level parameter table ───────────────────────────────────────
-# Maps level → (lambda, hash_bits, ext_e, hash_feature, mldsa_feature,
-# extra_features).  Matches `sweep_calibration::nist_level_params`.
-params_for_level () {
+# ── Cell-tuple grid per NIST λ-target ────────────────────────────────
+# Each cell-tuple is "hash:mldsa:ext_tower:q_log" where ext_tower is
+# 'hex' (F_p^6, no tower-octic) or 'oct' (F_p^8, tower-octic).  The
+# hash function is an independent grid axis (not derived from λ): we
+# pick the SHA-3 variant whose κ_bind ceiling clears λ at the given q.
+#
+# Per user grid (2026-06-18):
+#   L1 (λ=128): {sha3-256 @ q=2^40, sha3-384 @ q=2^65, sha3-512 @ q=2^90}
+#   L3 (λ=192): {sha3-384 @ q=2^40, sha3-384 @ q=2^65 (at-wall),
+#                sha3-512 @ q=2^90}
+#   L5 (λ=256): {sha3-512 @ q=2^40, sha3-512 @ q=2^65}
+#               (q=2^90 excluded — breaches SHA3-512 capacity at L5)
+# Extension field tracks λ-target: F_p^6 at L1/L3, F_p^8 at L5
+# (the orchestration's Ext alias gates on tower-octic; binding-stack
+#  Ext alias gates on sha3-512).
+cells_for_lambda () {
     case "$1" in
-        1) echo "128 256 6 sha3-256 mldsa-44 ''" ;;
-        3) echo "192 384 6 sha3-384 mldsa-65 ''" ;;
-        5) echo "256 512 8 sha3-512 mldsa-87 tower-octic" ;;
+        128)  # L1
+            echo "sha3-256:mldsa-44:hex:40 sha3-384:mldsa-44:hex:65 sha3-512:mldsa-44:hex:90" ;;
+        192)  # L3
+            echo "sha3-384:mldsa-65:hex:40 sha3-384:mldsa-65:hex:65 sha3-512:mldsa-65:hex:90" ;;
+        256)  # L5
+            echo "sha3-512:mldsa-87:oct:40 sha3-512:mldsa-87:oct:65" ;;
         *) echo "" ;;
+    esac
+}
+
+# Hash feature → output bits.
+hash_bits_for () {
+    case "$1" in
+        sha3-256) echo 256 ;;
+        sha3-384) echo 384 ;;
+        sha3-512) echo 512 ;;
+        *) echo 0 ;;
+    esac
+}
+
+# Tower spec → (ext_e, extra_features).
+ext_for_tower () {
+    case "$1" in
+        hex) echo "6 ''" ;;            # F_p^6, no extra features
+        oct) echo "8 tower-octic" ;;   # F_p^8 via tower-octic
+        *) echo "" ;;
+    esac
+}
+
+# λ → nist level (informational, for CSV/log).
+nist_level_for_lambda () {
+    case "$1" in
+        128) echo 1 ;;
+        192) echo 3 ;;
+        256) echo 5 ;;
+        *) echo 0 ;;
     esac
 }
 
@@ -232,9 +276,9 @@ features_for () {
 run_cell () {
     local air=$1 ldt=$2 k=$3 b=$4 r=$5
     local nist=$6 lambda=$7 q_log=$8 hash=$9 ext_e=${10}
-    local mldsa=${11} extra=${12}
-    local features prove_ms verify_ms proof_kib n_trace note=""
-    local log="$RESULTS_DIR/sweep-${air}-${ldt}-k${k}-b${b}-L${nist}-q${q_log}.log"
+    local mldsa=${11} extra=${12} cell_note=${13:-}
+    local features prove_ms verify_ms proof_kib n_trace note="$cell_note"
+    local log="$RESULTS_DIR/sweep-${air}-${ldt}-k${k}-b${b}-L${nist}-${hash}-q${q_log}.log"
 
     features=$(features_for "$air" "$hash" "$mldsa" "$extra")
 
@@ -243,7 +287,7 @@ run_cell () {
             export BENCH_LDT="$ldt" BENCH_BLOWUP="$b" BENCH_QUERIES="$r" BENCH_FOLD_K="$k"
             unset BENCH_T_SCHEDULE
             if [ "$SWEEP_DRY_RUN" = "1" ]; then
-                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=dry-run
+                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}dry-run"
             else
                 local line
                 if line=$(cargo run --release -p deep_ali --example rsa2048_bench \
@@ -254,7 +298,7 @@ run_cell () {
                     proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2)
                     n_trace=$(echo "$line"   | grep -oE "n_trace=[0-9]+"    | cut -d= -f2)
                 else
-                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=bench-error
+                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}bench-error"
                 fi
             fi
             ;;
@@ -263,7 +307,7 @@ run_cell () {
             export BENCH_K_SCALAR="${BENCH_K_SCALAR:-256}"
             unset BENCH_T_SCHEDULE
             if [ "$SWEEP_DRY_RUN" = "1" ]; then
-                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=dry-run
+                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}dry-run"
             else
                 local line
                 if line=$(cargo run --release -p deep_ali --example ed25519_bench \
@@ -274,7 +318,7 @@ run_cell () {
                     proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2)
                     n_trace=$(echo "$line"   | grep -oE "n_trace=[0-9]+"    | cut -d= -f2)
                 else
-                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=bench-error
+                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}bench-error"
                 fi
             fi
             ;;
@@ -283,7 +327,7 @@ run_cell () {
             export BENCH_K_SCALAR="${BENCH_K_SCALAR:-2}"
             unset BENCH_T_SCHEDULE
             if [ "$SWEEP_DRY_RUN" = "1" ]; then
-                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=dry-run
+                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}dry-run"
             else
                 local line
                 if line=$(cargo run --release -p deep_ali --example ecdsa_p256_bench \
@@ -294,7 +338,7 @@ run_cell () {
                     proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2)
                     n_trace=$(echo "$line"   | grep -oE "n_trace=[0-9]+"    | cut -d= -f2)
                 else
-                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=bench-error
+                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}bench-error"
                 fi
             fi
             ;;
@@ -306,7 +350,7 @@ run_cell () {
             esac
             unset BENCH_T_SCHEDULE BENCH_QUERIES
             if [ "$SWEEP_DRY_RUN" = "1" ]; then
-                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=dry-run
+                prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}dry-run"
             else
                 local line
                 if line=$(cargo test --release -p deep_ali \
@@ -318,7 +362,7 @@ run_cell () {
                     proof_kib=$(echo "$line" | grep -oE "proof_kib=[0-9.]+" | cut -d= -f2)
                     n_trace=NA
                 else
-                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note=bench-error
+                    prove_ms=NA; verify_ms=NA; proof_kib=NA; n_trace=NA; note="${cell_note:+${cell_note};}bench-error"
                 fi
             fi
             ;;
@@ -352,32 +396,38 @@ AIRS=("rsa2048" "ecdsa" "mldsa_v2" "ed25519")
 PHASES=("$SWEEP_PHASE")
 [ "$SWEEP_PHASE" = "all" ] && PHASES=(1 2 3)
 
-# Parse comma-separated subsets.
-IFS=',' read -ra NIST_LEVELS <<< "$SWEEP_NIST"
-IFS=',' read -ra Q_LOGS <<< "$SWEEP_Q_LOGS"
+# Parse λ-targets subset (default: all three NIST levels).
+SWEEP_LAMBDAS="${SWEEP_LAMBDAS:-128,192,256}"
+IFS=',' read -ra LAMBDA_TARGETS <<< "$SWEEP_LAMBDAS"
 
 echo "## Sweep started: $(date -Iseconds)"
 echo "## Phase(s): ${PHASES[*]}"
-echo "## NIST levels: ${NIST_LEVELS[*]}"
-echo "## q_log: ${Q_LOGS[*]}"
+echo "## λ-targets: ${LAMBDA_TARGETS[*]}"
 echo "## dry-run=$SWEEP_DRY_RUN"
 echo
 
 for phase in "${PHASES[@]}"; do
     SWEEP_PHASE="$phase"
     echo "═════ Phase $phase ═════"
-    for nist in "${NIST_LEVELS[@]}"; do
-        # Look up level parameters.
-        read -r lambda n_hash ext_e hash mldsa extra <<< "$(params_for_level "$nist")"
-        if [ -z "$lambda" ]; then
-            echo "skip: unknown NIST level $nist" >&2; continue
+    for lambda in "${LAMBDA_TARGETS[@]}"; do
+        nist=$(nist_level_for_lambda "$lambda")
+        cells=$(cells_for_lambda "$lambda")
+        if [ -z "$cells" ]; then
+            echo "skip: no cells for λ=$lambda" >&2; continue
         fi
-        echo "──── L${nist} (λ=${lambda}, ${hash}, F_p^${ext_e}) ────"
-        for q_log in "${Q_LOGS[@]}"; do
-            # M_rounds for the wall check.  We use the deployed M=8 here
-            # since the schedule lengths in v2_fri_params depend on the
-            # AIR's n_0; M=8 is the paper's deployed default.
-            wall=$(wall_check "$lambda" "$n_hash" "$ext_e" "$q_log" 8)
+        echo "──── L${nist} (λ=${lambda}) ────"
+        for cell_tuple in $cells; do
+            IFS=':' read -r hash mldsa tower q_log <<< "$cell_tuple"
+            n_hash=$(hash_bits_for "$hash")
+            read -r ext_e extra <<< "$(ext_for_tower "$tower")"
+            # Post-hoc κ_bind / κ_fs at this (n, e, q, M=8).
+            kbind=$(kappa_bind "$n_hash" "$q_log" 8)
+            kfs=$(kappa_fs "$ext_e" "$q_log" 10)
+            cell_note=""
+            if [ "$kbind" -lt "$lambda" ]; then
+                cell_note="at-wall(bind=${kbind}<${lambda})"
+            fi
+            echo "── (${hash}, ${mldsa}, F_p^${ext_e}, q=2^${q_log}) κ_bind=${kbind}, κ_fs=${kfs} ${cell_note}"
             for air in "${AIRS[@]}"; do
                 for ldt in "${LDTS[@]}"; do
                     for k in "${KS[@]}"; do
@@ -394,14 +444,9 @@ for phase in "${PHASES[@]}"; do
                                 fri)  r=$(calibrate_fri          "$lambda" "$b") ;;
                                 stir) r=$(calibrate_stir_uniform "$lambda" "$b") ;;
                             esac
-                            if [ "$wall" != "ok" ]; then
-                                record_wall_breach "$air" "$ldt" "$k" "$b" "$r" \
-                                    "$nist" "$lambda" "$q_log" "$hash" "$ext_e" "$wall"
-                                continue
-                            fi
                             run_cell "$air" "$ldt" "$k" "$b" "$r" \
                                 "$nist" "$lambda" "$q_log" "$hash" "$ext_e" \
-                                "$mldsa" "$extra"
+                                "$mldsa" "$extra" "$cell_note"
                         done
                     done
                 done
