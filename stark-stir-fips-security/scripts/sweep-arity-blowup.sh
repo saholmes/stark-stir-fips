@@ -373,7 +373,11 @@ run_cell () {
     esac
 
     : "${prove_ms:=NA}"; : "${verify_ms:=NA}"; : "${proof_kib:=NA}"; : "${n_trace:=NA}"
-    echo "${SWEEP_PHASE},${nist},${lambda},${q_log},${hash},${ext_e},${air},${ldt},${k},${b},${r},${prove_ms},${verify_ms},${proof_kib},${n_trace},${RAYON_NUM_THREADS},${note}" >> "$CSV"
+    # Only write to the CSV on real runs; dry-runs are observation-only
+    # to avoid polluting the canonical artifact with NA placeholder rows.
+    if [ "$SWEEP_DRY_RUN" != "1" ]; then
+        echo "${SWEEP_PHASE},${nist},${lambda},${q_log},${hash},${ext_e},${air},${ldt},${k},${b},${r},${prove_ms},${verify_ms},${proof_kib},${n_trace},${RAYON_NUM_THREADS},${note}" >> "$CSV"
+    fi
     printf "  → L%d q=2^%-2d %-12s ldt=%-4s k=%-2d b=%-2d r=%-4d  prove=%sms verify=%sms proof=%sKiB %s\n" \
         "$nist" "$q_log" "$air" "$ldt" "$k" "$b" "$r" "$prove_ms" "$verify_ms" "$proof_kib" "$note"
 }
