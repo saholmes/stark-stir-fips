@@ -149,14 +149,15 @@ fn main() {
     } else {
         let log2_n0 = n0.trailing_zeros() as usize;
         let log2_k = bench_fold_k.trailing_zeros() as usize;
-        assert!(
-            log2_n0 % log2_k == 0,
-            "uniform-mode schedule: log_2(n_0) = {} not divisible by \
-             log_2(BENCH_FOLD_K) = {}; pick a compatible BENCH_BLOWUP \
-             so n_0 is a power of {}",
-            log2_n0, log2_k, bench_fold_k
-        );
-        (0..log2_n0 / log2_k).map(|_| bench_fold_k).collect()
+        // k-fold with residual: fold by k while >= log2_k bits remain,
+        // then one residual fold for the remainder.  Fits any n_0 (like
+        // the deployed STIR div-4 schedule's residual), so FRI-k4 runs
+        // at the paper's rate 1/32 on every AIR regardless of trace parity.
+        let full = log2_n0 / log2_k;
+        let rem = log2_n0 % log2_k;
+        let mut s: Vec<usize> = (0..full).map(|_| bench_fold_k).collect();
+        if rem > 0 { s.push(1usize << rem); }
+        s
     };
 
     let mut params = DeepFriParams {

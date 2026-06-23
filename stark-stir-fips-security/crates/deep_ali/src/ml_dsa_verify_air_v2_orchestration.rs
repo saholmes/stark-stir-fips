@@ -797,17 +797,17 @@ fn make_v2_schedule(n0: usize) -> Vec<usize> {
     let log2_n0 = n0.trailing_zeros() as usize;
     let log2_k = k.trailing_zeros() as usize;
     assert!(log2_k > 0, "fold arity k must be >= 2; got {}", k);
-    assert!(
-        log2_n0 % log2_k == 0,
-        "fold arity k = {} requires log_2(n_0) divisible by log_2(k) = {}; \
-         got n_0 = 2^{} which is not k-aligned.  Pick a compatible \
-         BENCH_BLOWUP or change BENCH_FOLD_K.",
-        k,
-        log2_k,
-        log2_n0
-    );
-    let rounds = log2_n0 / log2_k;
-    vec![k; rounds]
+    // k-fold with residual: fold by k while >= log2_k bits remain, then a
+    // single residual fold for the remainder.  Fits any n_0 (no
+    // k-alignment requirement), matching the deployed div-4 schedule's
+    // residual, so FRI-k4 runs on every sub-AIR regardless of n_0 parity.
+    let full = log2_n0 / log2_k;
+    let rem = log2_n0 % log2_k;
+    let mut s: Vec<usize> = (0..full).map(|_| k).collect();
+    if rem > 0 {
+        s.push(1usize << rem);
+    }
+    s
 }
 
 /// M1.C — secured-mode schedule: $k$ fold arity over the
