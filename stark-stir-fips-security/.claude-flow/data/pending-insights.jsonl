@@ -293,3 +293,374 @@
 {"type":"edit","file":"/Volumes/SAHexternal/Downloads/main-28.tex","timestamp":1781340553411,"sessionId":null}
 {"type":"edit","file":"/Volumes/SAHexternal/Downloads/main-28.tex","timestamp":1781340561241,"sessionId":null}
 {"type":"edit","file":"/Volumes/SAHexternal/Downloads/main-28.tex","timestamp":1781340576239,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge.rs","timestamp":1781610638596,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge.rs","timestamp":1781610704952,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_layer0.rs","timestamp":1781611024458,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781611033354,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_layer0.rs","timestamp":1781611245959,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_layer0.rs","timestamp":1781611252289,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_layer0.rs","timestamp":1781611257702,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_layer0.rs","timestamp":1781611262818,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_ood_check.rs","timestamp":1781614828226,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781614847537,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_soundness.rs","timestamp":1781616547874,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_air.rs","timestamp":1781617117554,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781617123798,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781617481950,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781617486259,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781617490601,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781617499993,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781617657425,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781617666314,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781618175564,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781618189175,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781618246591,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781618276192,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781618329581,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781625286397,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781625294185,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781625506708,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625587616,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625605930,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625646819,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625668522,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625701184,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781625871469,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781625876101,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781625881205,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625890082,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625925720,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781625967708,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781626223139,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781626228071,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781626233309,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626244517,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781626260310,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781626264788,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626273086,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626330887,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626353499,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626388393,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781626437785,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781626658172,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781626697244,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781626965401,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781626996959,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781627019858,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/run-explicit-merge-sweep.sh","timestamp":1781627057098,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781627351314,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781627849452,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781627858079,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781640050833,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781640069528,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781640093812,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781640135262,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781640152744,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781640173453,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781640199899,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781640208777,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781640222500,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781640230936,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781642531766,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781642543027,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781642550031,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781642559754,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781642566864,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781642573317,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781642579862,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781642590899,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/Cargo.toml","timestamp":1781642874436,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/Cargo.toml","timestamp":1781643728470,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/Cargo.toml","timestamp":1781645568094,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_ntt_chained_air.rs","timestamp":1781645680558,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781646211714,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/Cargo.toml","timestamp":1781646293117,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/merge_wrappers.rs","timestamp":1781646336646,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781646552219,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/merkle/src/lib.rs","timestamp":1781647398305,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647410419,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647416285,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647421935,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647428265,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647433893,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647446309,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/merkle/src/lib.rs","timestamp":1781647490567,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/tower_field.rs","timestamp":1781647573178,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647578808,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647586780,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/quad_ext.rs","timestamp":1781647890923,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/cubic_ext.rs","timestamp":1781647904726,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sextic_ext.rs","timestamp":1781647918847,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/tower_field.rs","timestamp":1781647926453,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647934885,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647940483,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647947435,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647952914,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647958516,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781647963708,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781648340973,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781648351622,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781648366564,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781649129967,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781649144408,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781649984062,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781650306736,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781650330035,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781650750421,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781650764711,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781650782565,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781650802785,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781650820766,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781650829272,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651184416,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651202118,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651212724,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651226320,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651244615,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651255360,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651467927,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651483720,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651499811,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651524015,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651534927,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651547317,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651737310,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651766033,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651802699,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651835571,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781651873784,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651900551,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651911670,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651935589,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651949670,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781651961443,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695036914,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781695054325,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/rsa2048_bench.rs","timestamp":1781695066376,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695112167,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695156867,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695178313,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695185944,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695200647,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695208415,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781695217732,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781700891338,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781700903355,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781700915827,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781700929417,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/tests/explicit_merge_e2e.rs","timestamp":1781700940799,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/p256_ecdsa_air_v2.rs","timestamp":1781703991545,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/p256_ecdsa_air.rs","timestamp":1781704003482,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/binding_cells_commit.rs","timestamp":1781704019086,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/channel/benches/multi_air_end_to_end.rs","timestamp":1781704056598,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/channel/benches/end_to_end.rs","timestamp":1781704068045,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/channel/benches/simple_recursion.rs","timestamp":1781704078583,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/channel/benches/simple_recursion.rs","timestamp":1781704090570,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/fri.rs","timestamp":1781704221037,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704326502,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704343916,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704351983,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704364046,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704381801,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781704391615,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/secured_prove.rs","timestamp":1781704885706,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781704892059,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/secured_prove.rs","timestamp":1781704961084,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/rsa2048_bench.rs","timestamp":1781705042768,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/rsa2048_bench.rs","timestamp":1781705080174,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781705517642,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781705533321,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781705556442,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781705573500,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781705588343,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781705602446,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781705892425,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781705935561,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781705965194,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781706067818,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781706184601,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781706351830,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781706499279,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781706516057,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781706534402,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781706544540,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781706563072,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781706578464,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713096672,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713155003,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713214632,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713271068,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713303609,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781713351114,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713392628,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713430180,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713454920,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713488117,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713496977,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781713524794,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781721101967,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/Cargo.toml","timestamp":1781721119785,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ed25519_bench.rs","timestamp":1781721550048,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ecdsa_p256_bench.rs","timestamp":1781722352357,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ecdsa_p256_bench.rs","timestamp":1781722412385,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ecdsa_p256_bench.rs","timestamp":1781722422666,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781722574491,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/bench-all-signatures.sh","timestamp":1781722608901,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723074974,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723089485,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723121465,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723133446,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723163598,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781723182547,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781723202521,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781723222744,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723942476,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781723976529,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781724006136,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781724030230,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781724061173,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781724102604,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781724141863,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724165830,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724181847,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724193385,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724203494,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724213341,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724223734,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781724237774,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781770410008,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781770519921,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770739597,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770769291,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770778047,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781770793613,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781770822158,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770853857,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781770867230,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770926835,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781770943502,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_prove.rs","timestamp":1781771008707,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/explicit_merge_verify.rs","timestamp":1781771027175,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781776551665,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/lib.rs","timestamp":1781776570408,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1781776641785,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/secured_prove.rs","timestamp":1781776676601,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/secured_prove.rs","timestamp":1781776701701,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/rsa2048_bench.rs","timestamp":1781776738526,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ed25519_bench.rs","timestamp":1781776764687,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/ecdsa_p256_bench.rs","timestamp":1781776785574,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781777012852,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781777479596,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781777511135,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781777521174,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781777929460,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781777954083,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781778017046,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781778065670,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781778080252,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781778142654,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781778164456,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781778244986,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781778256519,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781778283871,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781779162283,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781779190452,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781779230160,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781779257221,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781779261682,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/.gitignore","timestamp":1781782065379,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781791847919,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781791923603,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781791987806,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/plot-sweep.py","timestamp":1781815314109,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781815685140,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781815729760,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781815739720,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781815746304,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781815759789,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781817479829,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/sweep_calibration.rs","timestamp":1781817500280,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/scripts/sweep-arity-blowup.sh","timestamp":1781817516508,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781817837722,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781817876554,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781817924262,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781817972576,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781817997528,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781818023832,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781818049827,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781818374539,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781818395384,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781818405932,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781818418835,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781875180807,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781875201830,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781875222710,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781875242936,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781875262886,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781875283850,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781876985310,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781876991508,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781877041520,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781877126113,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781877136398,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781877144894,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781877150352,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781877202922,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781877574057,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781877584727,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781878784768,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781878831183,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781878854628,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781878868545,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781880293963,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781880328701,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781880339576,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781880359926,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781880390597,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781880402015,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781883858846,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781883864685,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781883872963,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781883879096,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781883905002,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781883910365,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781883916615,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781883923744,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781884893398,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781884925792,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper.tex","timestamp":1781884963443,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781884970411,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781884977487,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/STIR-paper-named.tex","timestamp":1781884984347,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888483664,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888490067,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888544279,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888578388,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888607987,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888659887,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888708815,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888738245,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781888781219,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889005169,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889025129,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889036196,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889046946,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889196556,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889204362,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889213869,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889222771,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889232591,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889515921,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889526303,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889536532,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889652647,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889662048,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889883743,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889892441,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889929861,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781889948192,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781890155813,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781890164313,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal/Downloads/ESORICS-FINAL.tex","timestamp":1781890226817,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/examples/rho_sweep.rs","timestamp":1782223835754,"sessionId":null}
+{"type":"edit","file":"/Volumes/SAHexternal 1/Documents/stark-stir-fips/stark-stir-fips-security/crates/deep_ali/src/ml_dsa_verify_air_v2_orchestration.rs","timestamp":1782245421882,"sessionId":null}

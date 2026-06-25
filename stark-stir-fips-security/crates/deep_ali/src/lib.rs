@@ -670,6 +670,7 @@ pub mod merge_wrappers;
 // Re-export merge wrappers at the crate root to match dust-stark's API.
 // The ported AIR test code uses `crate::deep_ali_merge_*` paths.
 pub use merge_wrappers::{
+    deep_ali_merge_ecdsa_double_multirow_streaming,
     deep_ali_merge_ed25519_verify,
     deep_ali_merge_general_streaming,
     deep_ali_merge_ml_dsa_v17,

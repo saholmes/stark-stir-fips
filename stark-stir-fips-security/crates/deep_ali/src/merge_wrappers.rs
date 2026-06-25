@@ -1509,6 +1509,135 @@ pub fn deep_ali_merge_p256_ecdsa_v2_streaming(
     (c_eval, info)
 }
 
+/// Streaming variant of the double-chain ECDSA-P256 merge — processes
+/// LDE one trace-row chunk at a time to avoid the O(n × w) row-major
+/// transpose memory footprint.  Ported verbatim from
+/// stark-stir-swarm/crates/deep_ali/src/lib.rs (single-STARK full
+/// scalar-mult work: both u_1·G and u_2·Q chains in one trace).
+/// Same composition as the row-major merge; memory ≈ 2 × blowup × w
+/// × 8 bytes per active worker.  This is the path that lets the full
+/// K=256 ECDSA verify avoid the OOM that the v2 flat-row layout hits.
+pub fn deep_ali_merge_ecdsa_double_multirow_streaming(
+    trace_evals_on_lde: &[Vec<F>],
+    combination_coeffs: &[F],
+    layout: &crate::p256_ecdsa_double_multirow_air::EcdsaDoubleMultirowLayout,
+    omega: F,
+    n_trace: usize,
+    blowup: usize,
+) -> (Vec<F>, CompositionInfo) {
+    use crate::p256_ecdsa_double_multirow_air::{
+        ecdsa_double_multirow_constraints, eval_ecdsa_double_multirow_per_row,
+    };
+
+    let _ = omega;
+    let n = n_trace * blowup;
+    let w = layout.width;
+    let k = ecdsa_double_multirow_constraints(layout);
+
+    assert_eq!(trace_evals_on_lde.len(), w);
+    assert_eq!(combination_coeffs.len(), k);
+    for col in trace_evals_on_lde {
+        assert_eq!(col.len(), n);
+    }
+
+    let build_chunk = |base: usize| -> Vec<Vec<F>> {
+        #[cfg(feature = "parallel")]
+        {
+            (0..blowup)
+                .into_par_iter()
+                .map(|idx| (0..w).map(|c| trace_evals_on_lde[c][base + idx]).collect())
+                .collect()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            (0..blowup)
+                .map(|idx| (0..w).map(|c| trace_evals_on_lde[c][base + idx]).collect())
+                .collect()
+        }
+    };
+
+    let mut phi_eval = vec![F::zero(); n];
+    let mut cur_chunk = build_chunk(0);
+    let chunk0_for_wrap = cur_chunk.clone();
+
+    for r in 0..n_trace {
+        let nxt_chunk: Vec<Vec<F>> = if r + 1 < n_trace {
+            build_chunk((r + 1) * blowup)
+        } else {
+            chunk0_for_wrap.clone()
+        };
+
+        let base = r * blowup;
+        let trace_row = r;
+
+        let chunk_phi: Vec<F>;
+        #[cfg(feature = "parallel")]
+        {
+            chunk_phi = (0..blowup)
+                .into_par_iter()
+                .map(|idx| {
+                    let cur: &[F] = &cur_chunk[idx];
+                    let nxt: &[F] = &nxt_chunk[idx];
+                    let cvals = eval_ecdsa_double_multirow_per_row(
+                        cur, nxt, trace_row, n_trace, layout,
+                    );
+                    let mut acc = F::zero();
+                    for j in 0..k {
+                        acc += combination_coeffs[j] * cvals[j];
+                    }
+                    acc
+                })
+                .collect();
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            chunk_phi = (0..blowup)
+                .map(|idx| {
+                    let cur: &[F] = &cur_chunk[idx];
+                    let nxt: &[F] = &nxt_chunk[idx];
+                    let cvals = eval_ecdsa_double_multirow_per_row(
+                        cur, nxt, trace_row, n_trace, layout,
+                    );
+                    let mut acc = F::zero();
+                    for j in 0..k {
+                        acc += combination_coeffs[j] * cvals[j];
+                    }
+                    acc
+                })
+                .collect();
+        }
+        for (idx, v) in chunk_phi.into_iter().enumerate() {
+            phi_eval[base + idx] = v;
+        }
+        cur_chunk = nxt_chunk;
+    }
+
+    let domain =
+        GeneralEvaluationDomain::<F>::new(n).expect("power-of-two domain");
+    let phi_coeffs = domain.ifft(&phi_eval);
+    let c_coeffs = poly_div_zh(&phi_coeffs, n_trace);
+    let mut padded = c_coeffs.clone();
+    padded.resize(n, F::zero());
+    let c_eval = domain.fft(&padded);
+
+    let max_deg = 2usize;
+    let phi_degree_bound = max_deg * n_trace;
+    let quotient_degree_bound = if phi_degree_bound > n_trace {
+        phi_degree_bound - n_trace
+    } else {
+        0
+    };
+    let info = CompositionInfo {
+        phi_degree_bound,
+        quotient_degree_bound,
+        rate: quotient_degree_bound as f64 / n as f64,
+        num_constraints: k,
+        max_constraint_degree: max_deg,
+        trace_width: w,
+    };
+    (c_eval, info)
+}
+
 // ═══════════════════════════════════════════════════════════════════
 //  Legacy single-constraint merge (Fibonacci: Φ̃ = a·s + e − t)
 // ═══════════════════════════════════════════════════════════════════
